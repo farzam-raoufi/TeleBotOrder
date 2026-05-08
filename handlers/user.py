@@ -50,8 +50,7 @@ async def cmd_start(message: Message):
 async def request_membership(callback: CallbackQuery):
     
     user = await create_user(callback.from_user.id, callback.from_user.full_name)
-     
-    # اینجا می‌توانستیم وضعیت را به pending تغییر دهیم، اما فعلاً فقط اطلاع‌رسانی
+     # Here we could have changed the status to 'pending', but for now we only send a notification
     await callback.answer("درخواست شما ثبت شد. منتظر تأیید ادمین باشید.", show_alert=True)
     
     await callback.message.edit_text(

@@ -13,7 +13,7 @@ from handlers.admin import admin_router
 
 load_dotenv()
 
-# تنظیم لاگ
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(
@@ -24,7 +24,7 @@ bot = Bot(
 
 dp = Dispatcher()
 
-# ثبت روترها
+# Register routers
 dp.include_router(admin_router)
 dp.include_router(user_router)
 # dp.include_router(callback_router)

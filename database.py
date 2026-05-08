@@ -7,7 +7,7 @@ DB_NAME = "TeleBotOrder.db"
 async def init_db():
     async with aiosqlite.connect(DB_NAME) as db:
         
-        # جدول کاربران
+# Users table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,8 +17,7 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
-        # جدول نقش و دسترسی‌ها
+# Roles and permissions table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS roles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,27 +31,24 @@ async def init_db():
         await db.commit()
         logging.info("✅ data base and tables created")
 
-
-# تابع کمکی برای ثبت یا گرفتن کاربر
+# Helper function to get or register user
 async def get_or_create_user(tel_id: int, name: str):
     async with aiosqlite.connect(DB_NAME) as db:
-        # چک کنیم کاربر وجود دارد یا نه
+# Check if user exists
         async with db.execute("SELECT * FROM users WHERE tel_id = ?", (tel_id,)) as cursor:
             user = await cursor.fetchone()
             
             if not user:
-                # کاربر جدید
+                # New user 
                 await db.execute(
                     "INSERT INTO users (tel_id, name) VALUES (?, ?)", 
                     (tel_id, name)
                 )
                 await db.commit()
-                
-                # گرفتن id کاربر تازه ساخته شده
+                # Get the ID of the newly created user
                 async with db.execute("SELECT id FROM users WHERE tel_id = ?", (tel_id,)) as c:
                     user_id = (await c.fetchone())[0]
-                
-                # دادن دسترسی اولیه (مثلاً 0 = دسترسی معمولی)
+                # Assign initial access (e.g., 0 = normal access)
                 await db.execute(
                     "INSERT INTO roles (user_id, permission) VALUES (?, ?)", 
                     (user_id, 0)
@@ -81,7 +77,7 @@ async def create_user(tel_id: int, name: str):
         )
         await db.commit()
         
-        # دریافت کاربر تازه ایجاد شده
+        #Get the newly created user
         return await get_user(tel_id)
 
 
