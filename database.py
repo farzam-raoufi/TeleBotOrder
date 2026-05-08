@@ -5,7 +5,6 @@ from datetime import datetime
 DB_NAME = "TeleBotOrder.db"
 
 async def init_db():
-    """ساخت جدول‌های دیتابیس با ساختار مورد نظر شما"""
     async with aiosqlite.connect(DB_NAME) as db:
         
         # جدول کاربران
@@ -31,7 +30,7 @@ async def init_db():
         """)
 
         await db.commit()
-        logging.info("✅ دیتابیس و جدول‌ها با موفقیت ساخته شدند")
+        logging.info("✅ data base and tables created")
 
 
 # تابع کمکی برای ثبت یا گرفتن کاربر

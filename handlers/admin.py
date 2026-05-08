@@ -19,6 +19,28 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_ID
 
 
+@admin_router.callback_query(F.data == "show_pending")
+async def show_pending_users(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    
+    pending = await get_pending_users()
+    
+    if not pending:
+        await callback.answer("✅ Currently no pending users.", show_alert=True)
+        return
+    
+    for user in pending:
+        text = f"👤 نام: {user['name']}\n🆔 آیدی: `{user['tel_id']}`\n📅 تاریخ: {user['created_at'][:16]}"
+        
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_admin_approval_keyboard(user['tel_id'])
+        )
+    
+    await callback.answer(f"{len(pending)} کاربر در انتظار بررسی.")
+
 @admin_router.message(Command("admin"))
 async def admin_panel(message: Message):
     if not is_admin(message.from_user.id):

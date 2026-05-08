@@ -1,14 +1,30 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command
-from database import get_user, create_user
+from database import get_user, create_user, set_user_status
 from keyboards.inline import get_start_keyboard
+from handlers.admin import is_admin
 
 user_router = Router()
 
 @user_router.message(Command("start"))
 async def cmd_start(message: Message):
     user = await get_user(message.from_user.id)
+    
+    if is_admin(message.from_user.id):
+        if not user:
+            await create_user(message.from_user.id, message.from_user.full_name)
+            await set_user_status(message.from_user.id, 1)  # approved
+            
+        keyboard = [
+            [InlineKeyboardButton(text="📋 لیست کاربران در انتظار", callback_data="show_pending")]
+        ]
+        await message.answer(
+            "👑 پنل مدیریت ادمین",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        return
+    
     
     if user:
         if user["status"] == 1:  # approved
@@ -27,13 +43,7 @@ async def cmd_start(message: Message):
             "برای استفاده از ربات، ابتدا باید توسط ادمین تأیید شوید.",
             reply_markup=get_start_keyboard()
         ) 
-        
-        
-# await message.answer(
-#     "👋 خوش آمدید!\n\n"
-#     "برای استفاده از ربات، ابتدا باید توسط ادمین تأیید شوید."
-# )
-#
+
 
 
 @user_router.callback_query(F.data == "request_membership")

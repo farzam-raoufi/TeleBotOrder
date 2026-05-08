@@ -31,8 +31,8 @@ dp.include_router(user_router)
 
 
 async def main():
-    await init_db()           # ساخت دیتابیس
-    print("ربات شروع به کار کرد...")
+    await init_db()
+    print("robot started")
     await dp.start_polling(bot)
 
 
