@@ -1,11 +1,28 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from dotenv import load_dotenv
+import os
+
 from database import get_user, create_user, set_user_status
-from keyboards.inline import get_start_keyboard
-from handlers.admin import is_admin
+from keyboards.inline import get_start_keyboard, get_admin_main_menu
+from keyboards.reply import get_user_main_menu, get_admin_main_menu
 
 user_router = Router()
+
+load_dotenv()
+
+ADMIN_ID =  [
+    int(user_id)
+    for user_id in os.getenv("ADMIN_ID", "").split(",")
+    if user_id
+]
+
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_ID
+
+
+
 
 @user_router.message(Command("start"))
 async def cmd_start(message: Message):
@@ -15,20 +32,21 @@ async def cmd_start(message: Message):
         if not user:
             await create_user(message.from_user.id, message.from_user.full_name)
             await set_user_status(message.from_user.id, 1)  # approved
-            
-        keyboard = [
-            [InlineKeyboardButton(text="📋 لیست کاربران در انتظار", callback_data="show_pending")]
-        ]
+
+
         await message.answer(
-            "👑 پنل مدیریت ادمین",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-        )
+                    "👑 به پنل مدیریت خوش آمدید",
+                    reply_markup=get_admin_main_menu()
+                    )
         return
     
     
     if user:
         if user["status"] == 1:  # approved
-            await message.answer("✅ شما تأیید شدید.\nاز منوی اصلی استفاده کنید.")
+            await message.answer(
+            "✅ خوش آمدید!\nاز منوی پایین استفاده کنید:",
+            reply_markup=get_user_main_menu()
+        )
         elif user["status"] == 2:  # rejected
             await message.answer("درخواست شما توسط ادمین تأیید نشده.\nدوباره درخواست میدهید ؟.",
                 reply_markup=get_start_keyboard())
