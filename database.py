@@ -97,14 +97,14 @@ async def set_user_status(tel_id: int, new_status: int):
         await db.commit()
 
 
-async def get_pending_users():
-    """دریافت لیست کاربران در انتظار تأیید"""
+async def get_users_by_status(status: int):
+    """دریافت لیست کاربران بر اساس وضعیت """
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT id, tel_id, name, created_at 
             FROM users 
-            WHERE status = 0 
+            WHERE status = ?
             ORDER BY created_at DESC
-        """) as cursor:
+        """,(status,)) as cursor:
             rows = await cursor.fetchall()
             return [dict(zip([c[0] for c in cursor.description], row)) for row in rows]

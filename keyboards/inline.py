@@ -6,6 +6,14 @@ def get_start_keyboard():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+def get_admin_main_menu():
+    """منوی اصلی ادمین"""
+    keyboard = [
+        [InlineKeyboardButton(text="📋 کاربران در انتظار تأیید", callback_data="show_pending")],
+        [InlineKeyboardButton(text="👥 لیست همه کاربران", callback_data="show_all_users")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 
 def get_admin_approval_keyboard(tel_id: int):
     keyboard = [

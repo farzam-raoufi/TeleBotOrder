@@ -1,7 +1,8 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
-from database import get_pending_users, set_user_status
+
+from database import get_users_by_status, set_user_status
 from keyboards.inline import get_admin_approval_keyboard
 from dotenv import load_dotenv
 import os
@@ -19,46 +20,52 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_ID
 
 
-@admin_router.callback_query(F.data == "show_pending")
-async def show_pending_users(callback: CallbackQuery):
-    if not is_admin(callback.from_user.id):
+
+@admin_router.message(F.text == "📋 کاربران در انتظار تأیید")
+async def show_pending_users(message: Message):
+    if not is_admin(message.from_user.id):
         return
-    
-    pending = await get_pending_users()
+
+    pending = await get_users_by_status(0)
     
     if not pending:
-        await callback.answer("✅ Currently no pending users.", show_alert=True)
+        await message.answer("✅ در حال حاضر کاربری در انتظار تأیید نیست.")
         return
-    
+
     for user in pending:
-        text = f"👤 نام: {user['name']}\n🆔 آیدی: `{user['tel_id']}`\n📅 تاریخ: {user['created_at'][:16]}"
+        text = f"👤 <b>{user['name']}</b>\n🆔 <code>{user['tel_id']}</code>\n📅 {user['created_at'][:16]}"
         
-        await callback.message.answer(
+        await message.answer(
             text,
             parse_mode="HTML",
             reply_markup=get_admin_approval_keyboard(user['tel_id'])
         )
-    
-    await callback.answer(f"{len(pending)} کاربر در انتظار بررسی.")
 
-@admin_router.message(Command("admin"))
-async def admin_panel(message: Message):
+    await message.answer(f"✅ {len(pending)} کاربر در انتظار بررسی نمایش داده شد.")
+
+
+
+@admin_router.message(F.text == "👥 لیست همه کاربران")
+async def show_all_users(message: Message):
     if not is_admin(message.from_user.id):
         return
     
-    pending = await get_pending_users()
+    users = await get_users_by_status(1)
     
-    if not pending:
-        await message.answer("✅ Currently there are no pending users.")
+    if not users:
+        await message.answer("Currently no user.", show_alert=True)
         return
     
-    text = "📋 <b>Pending Users:</b>\n\n"
-    for user in pending:
-        text += f"👤 {user['name']}\n"
-        text += f"🆔 `{user['tel_id']}`\n"
-        text += f"📅 {user['created_at'][:16]}\n\n"
+    for user in users:
+        text = f"👤 نام: {user['name']}\n🆔 آیدی: `{user['tel_id']}`\n📅 تاریخ: {user['created_at'][:16]}"
+        
+        await message.answer(
+            text,
+            parse_mode="HTML"
+        )
     
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(f"{len(users)} کاربر فعال.")
+
 
 
 @admin_router.callback_query(F.data.startswith("approve_"))
