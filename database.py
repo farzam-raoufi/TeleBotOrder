@@ -108,3 +108,13 @@ async def get_users_by_status(status: int):
         """,(status,)) as cursor:
             rows = await cursor.fetchall()
             return [dict(zip([c[0] for c in cursor.description], row)) for row in rows]
+
+async def is_banned(tel_id: int) -> dict | None:
+    user = await get_user(tel_id)
+    
+    if not user:
+        return False
+    
+    if user["status"] in [3, 4]:   # بلاک شده
+        return true
+    return false
