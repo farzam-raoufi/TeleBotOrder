@@ -1,9 +1,9 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 
 from database import get_users_by_status, set_user_status
-from keyboards.inline import get_admin_approval_keyboard
+from keyboards.inline import get_admin_approval_keyboard, get_start_keyboard
 from dotenv import load_dotenv
 import os
 
@@ -69,25 +69,69 @@ async def show_all_users(message: Message):
 
 
 @admin_router.callback_query(F.data.startswith("approve_"))
-async def approve_user(callback: CallbackQuery):
+async def approve_user(callback: CallbackQuery, bot: Bot):
     if not is_admin(callback.from_user.id):
         await callback.answer("شما دسترسی ندارید!", show_alert=True)
         return
     
     user_tel_id = int(callback.data.split("_")[1])
     await set_user_status(user_tel_id, 1)  # approved
+
+    # ارسال پیام به کاربر
+    try:
+        await bot.send_message(
+            chat_id=user_tel_id,
+            text="✅ **تبریک!**\n\n"
+                 "درخواست ثبت‌نام شما توسط ادمین تأیید شد.\n"
+                 "حالا می‌توانید از امکانات ربات استفاده کنید."
+        )
+    except:
+        pass  # کاربر بات را بلاک کرده یا شروع نکرده
     
     await callback.answer("✅ کاربر تأیید شد", show_alert=True)
     await callback.message.edit_text(callback.message.text + "\n\n✅ تأیید شد")
 
 
 @admin_router.callback_query(F.data.startswith("reject_"))
-async def reject_user(callback: CallbackQuery):
+async def reject_user(callback: CallbackQuery, bot: Bot):
     if not is_admin(callback.from_user.id):
         return
     
     user_tel_id = int(callback.data.split("_")[1])
     await set_user_status(user_tel_id, 2)  # rejected
     
+    # ارسال پیام به کاربر
+    try:
+        await bot.send_message(
+            chat_id=user_tel_id,
+            text="❌ متأسفانه درخواست ثبت‌نام شما توسط ادمین رد شد.\n\n"
+                 "در صورت تمایل می‌توانید دوباره درخواست دهید:",
+            reply_markup=get_start_keyboard()   # ← دکمه درخواست اضافه شد
+        )
+    except:
+        pass
+
     await callback.answer("❌ کاربر رد شد", show_alert=True)
     await callback.message.edit_text(callback.message.text + "\n\n❌ رد شد")
+
+
+
+@admin_router.callback_query(F.data.startswith("banned_"))
+async def banned_user(callback: CallbackQuery, bot: Bot):
+    if not is_admin(callback.from_user.id):
+        return
+    
+    user_tel_id = int(callback.data.split("_")[1])
+    await set_user_status(user_tel_id, 3)  # banned
+    
+    # ارسال پیام به کاربر
+    try:
+        await bot.send_message(
+            chat_id=user_tel_id,
+            text="❌ متأسفانه حساب شما مسدود شد."
+        )
+    except:
+        pass
+
+    await callback.answer("❌ کاربر رد مسدود", show_alert=True)
+    await callback.message.edit_text(callback.message.text + "\n\n❌ مسدود شد")

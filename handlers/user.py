@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
 
-from database import get_user, create_user, set_user_status
+from database import get_user, create_user, set_user_status, is_banned
 from keyboards.inline import get_start_keyboard, get_admin_main_menu
 from keyboards.reply import get_user_main_menu, get_admin_main_menu
 
@@ -55,6 +55,10 @@ async def cmd_start(message: Message):
                 "👋 خوش آمدید!\n\n"
                 "درخواست شما برای استفاده از ربات ثبت شده. لطفا منتظر تایید ادمین بمانید."
             )
+        elif user["status"] == 3:
+            await message.answer(
+                "❌ متأسفانه حساب شما مسدود شد."
+            )
     else:
         await message.answer(
             "👋 خوش آمدید!\n\n"
@@ -67,6 +71,23 @@ async def cmd_start(message: Message):
 @user_router.callback_query(F.data == "request_membership")
 async def request_membership(callback: CallbackQuery):
     
+    user = await get_user(callback.from_user.id)
+    if user:
+        if is_banned(callback.from_user.id) : await message.answer("❌ متأسفانه حساب شما مسدود شد.")
+
+
+        if user["status"] == 0:   # pending
+            await callback.answer("درخواست شما قبلاً ثبت شده و در حال بررسی است.", show_alert=True)
+        elif user["status"] == 1:
+            await callback.answer("شما قبلاً تأیید شدید!", show_alert=True)
+        elif user["status"] == 2:
+            await set_user_status(callback.from_user.id, 0)
+            await callback.answer("درخواست شما مجدد ارسال شد..", show_alert=True)
+            await callback.message.edit_text(
+                "✅ درخواست عضویت شما ارسال شد.\n"
+                "ادمین به‌زودی بررسی خواهد کرد."
+            )
+        return
     user = await create_user(callback.from_user.id, callback.from_user.full_name)
      # Here we could have changed the status to 'pending', but for now we only send a notification
     await callback.answer("درخواست شما ثبت شد. منتظر تأیید ادمین باشید.", show_alert=True)
