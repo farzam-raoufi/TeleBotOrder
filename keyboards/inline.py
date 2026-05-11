@@ -19,7 +19,8 @@ def get_admin_approval_keyboard(tel_id: int):
     keyboard = [
         [
             InlineKeyboardButton(text="✅ تأیید", callback_data=f"approve_{tel_id}"),
-            InlineKeyboardButton(text="❌ رد کردن", callback_data=f"reject_{tel_id}")
+            InlineKeyboardButton(text="❌ رد کردن", callback_data=f"reject_{tel_id}"),
+            InlineKeyboardButton(text="⛔ مسدود کردن", callback_data=f"banned_{tel_id}"),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

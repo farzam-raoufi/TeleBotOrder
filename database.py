@@ -13,6 +13,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tel_id INTEGER UNIQUE NOT NULL,           -- آیدی تلگرام (user_id)
                 name TEXT,                                -- نام کاربر در تلگرام
+                capacity INTEGER DEFAULT 3,               -- محدودیت وزن معامله شده در روز
                 status INTEGER DEFAULT 0,                 -- 0=pending, 1=approved, 2=rejected, 3=banned, 4 emergency exit
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -117,4 +118,4 @@ async def is_banned(tel_id: int) -> dict | None:
     
     if user["status"] in [3, 4]:   # بلاک شده
         return true
-    return false
+    return False

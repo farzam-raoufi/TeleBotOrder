@@ -57,7 +57,7 @@ async def cmd_start(message: Message):
             )
         elif user["status"] == 3:
             await message.answer(
-                "❌ متأسفانه حساب شما مسدود شد."
+                "⛔ متأسفانه حساب شما مسدود شد."
             )
     else:
         await message.answer(
@@ -73,7 +73,9 @@ async def request_membership(callback: CallbackQuery):
     
     user = await get_user(callback.from_user.id)
     if user:
-        if is_banned(callback.from_user.id) : await message.answer("❌ متأسفانه حساب شما مسدود شد.")
+        if await is_banned(callback.from_user.id) :
+            await message.answer("⛔ متأسفانه حساب شما مسدود شد.")
+            return
 
 
         if user["status"] == 0:   # pending

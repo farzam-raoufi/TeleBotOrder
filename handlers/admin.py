@@ -128,10 +128,10 @@ async def banned_user(callback: CallbackQuery, bot: Bot):
     try:
         await bot.send_message(
             chat_id=user_tel_id,
-            text="❌ متأسفانه حساب شما مسدود شد."
+            text="⛔ متأسفانه حساب شما مسدود شد."
         )
     except:
         pass
 
-    await callback.answer("❌ کاربر رد مسدود", show_alert=True)
-    await callback.message.edit_text(callback.message.text + "\n\n❌ مسدود شد")
+    await callback.answer("⛔ کاربر مسدود شد.", show_alert=True)
+    await callback.message.edit_text(callback.message.text + "\n⛔ مسدود شد")
