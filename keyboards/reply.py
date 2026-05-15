@@ -14,8 +14,12 @@ def get_user_main_menu():
 def get_admin_main_menu():
     """منوی اصلی ادمین"""
     keyboard = [
-        [KeyboardButton(text="📋 کاربران در انتظار تأیید")],
-        [KeyboardButton(text="👥 لیست همه کاربران")],
+        [KeyboardButton(text="لیست کاربران فعال ✅")],
+        [KeyboardButton(text="لیست کاربران در انتظار تأیید ⏳")],
+        [KeyboardButton(text="لیست کاربران خروج اضطراری 🚨")],
+        [KeyboardButton(text="لیست کاربران مسدود شده 🚫")],
+        [KeyboardButton(text="لیست کاربران (همه کاربران) 👥")],
+
         [KeyboardButton(text="📊 آمار کلی")],
         [KeyboardButton(text="⚙️ تنظیمات")]
     ]
