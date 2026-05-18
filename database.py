@@ -1,6 +1,6 @@
 import aiosqlite
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DB_NAME = "TeleBotOrder.db"
 
@@ -19,7 +19,8 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-# Roles and permissions table
+        
+        # Roles and permissions table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS roles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +29,46 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
+        """)
+        
+        
+        # Orders / Offers table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                
+                -- اطلاعات لفظ دهنده
+                offerer_id INTEGER NOT NULL,           -- آیدی کاربر لفظ دهنده (از جدول users)
+                offerer_tel_id INTEGER NOT NULL,       -- tel_id برای راحتی
+                
+                -- وضعیت و زمان‌ها
+                created_at
+                TEXT DEFAULT CURRENT_TIMESTAMP,   -- زمان ثبت لفظ
+                expires_at TEXT,                             -- زمان انقضا (۶۰ ثانیه بعد)
+                trade_date TEXT NOT NULL,                    -- تاریخ معامله (جلالی)
+                
+                -- جزئیات معامله
+                price INTEGER NOT NULL,                      -- قیمت
+                order_type TEXT NOT NULL,                    -- خرید - فروش
+                volume REAL NOT NULL,                        -- حجم به کیلو
+                payment_type TEXT NOT NULL,                  --  1 نقدی 2 - غیر نقدی
+                
+                -- توضیحات اضافی (اختیاری)
+                description TEXT,                            -- متن بعد از ":"
+                
+                -- وضعیت معامله
+                status TEXT DEFAULT 'active',                -- active / accepted / cancelled / expired
+                acceptor_id INTEGER,                         -- آیدی کسی که قبول کرده
+                acceptor_tel_id INTEGER,
+                accepted_at TEXT,                            -- زمان پذیرش
+                
+                -- پیام در گروه (برای مدیریت دکمه‌ها)
+                group_message_id INTEGER,                    -- message_id در گروه
+                group_chat_id INTEGER,                       -- chat_id گروه
+                
+                FOREIGN KEY (offerer_id) REFERENCES users(id),
+                FOREIGN KEY (acceptor_id) REFERENCES users(id)
+            );
         """)
 
         await db.commit()
@@ -102,19 +143,6 @@ async def set_user_status(tel_id: int, new_status: int):
         await db.commit()
 
 
-# async def get_users_by_status(status: int):
-#     """دریافت لیست کاربران بر اساس وضعیت """
-#     async with aiosqlite.connect(DB_NAME) as db:
-#         async with db.execute("""
-#             SELECT id, tel_id, name, created_at
-#             FROM users
-#             WHERE status = ?
-#             ORDER BY created_at DESC
-#         """, (status,)) as cursor:
-#             rows = await cursor.fetchall()
-#             return [dict(zip([c[0] for c in cursor.description], row)) for row in rows]
-
-
 async def get_users_by_status(*statuses: int):
     """دریافت لیست کاربران"""
 
@@ -153,7 +181,7 @@ async def is_banned(tel_id: int) -> dict | None:
         return False
 
     if user["status"] in [3, 4]:   # بلاک شده
-        return true
+        return True
     return False
 
 
@@ -201,4 +229,70 @@ async def remove_permission(user_id: int, permission: int):
             "DELETE FROM roles WHERE user_id = ? AND permission = ?",
             (user_id, permission)
         )
+        await db.commit()
+
+
+
+
+
+# ======================== Orders ========================
+
+async def create_order(
+    offerer_id: int,
+    offerer_tel_id: int,
+    price: int,
+    order_type: str,
+    volume: float,
+    payment_type: str,
+    trade_date: str,
+    description: str = None,
+    group_chat_id: int = None,
+    group_message_id: int = None
+) -> int:
+    async with aiosqlite.connect(DB_NAME) as db:
+        expires_at = (datetime.now() + timedelta(seconds=60)).isoformat()
+        
+        await db.execute("""
+            INSERT INTO orders (
+                offerer_id, offerer_tel_id, price, order_type, volume,
+                payment_type, trade_date, description, expires_at,
+                group_chat_id, group_message_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            offerer_id, offerer_tel_id, price, order_type, volume,
+            payment_type, trade_date, description, expires_at,
+            group_chat_id, group_message_id
+        ))
+        await db.commit()
+        
+        async with db.execute("SELECT last_insert_rowid()") as cursor:
+            row = await cursor.fetchone()
+            return row[0]
+
+
+async def get_order(order_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(zip([c[0] for c in cursor.description], row))
+            return None
+
+
+async def accept_order(order_id: int, acceptor_id: int, acceptor_tel_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            UPDATE orders 
+            SET status = 'accepted', 
+                acceptor_id = ?,
+                acceptor_tel_id = ?,
+                accepted_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (acceptor_id, acceptor_tel_id, order_id))
+        await db.commit()
+
+
+async def cancel_order(order_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
         await db.commit()

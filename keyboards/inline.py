@@ -1,4 +1,5 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 def get_start_keyboard():
@@ -105,3 +106,41 @@ def get_permissions_management_keyboard(tel_id: int, has_set_order: bool, has_ac
     ]
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_confirmation_keyboard() -> InlineKeyboardMarkup:
+    """
+    کیبورد تأیید لفظ قبل از ارسال به گروه
+    """
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="✅ تأیید و ارسال به گروه",
+        callback_data="confirm_order"
+    )
+
+    builder.button(
+        text="❌ لغو",
+        callback_data="cancel_order"
+    )
+
+    # تنظیم دو دکمه در یک سطر
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def get_order_keyboard(order_id: int, count: int) -> InlineKeyboardMarkup:
+    """
+    کیبورد زیر لفظ در گروه - برای قبول کردن معامله
+    کاربر باید دو بار کلیک کند
+    """
+    builder = InlineKeyboardBuilder()
+
+    for i in range(count):
+        i += 1
+        builder.button(
+            text=str(+i),
+            callback_data=f"accept_order_{order_id}_{i}"
+        )
+
+    builder.adjust(count if count <= 3 else 3)
+    return builder.as_markup()

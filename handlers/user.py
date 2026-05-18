@@ -70,7 +70,7 @@ async def request_membership(callback: CallbackQuery):
     user = await get_user(callback.from_user.id)
     if user:
         if await is_banned(callback.from_user.id):
-            await message.answer("⛔ متأسفانه حساب شما مسدود شد.")
+            await callback.answer("⛔ متأسفانه حساب شما مسدود شد.")
             return
 
         if user["status"] == 0:   # pending
