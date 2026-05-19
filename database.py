@@ -19,7 +19,7 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Roles and permissions table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS roles (
@@ -30,8 +30,7 @@ async def init_db():
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
         """)
-        
-        
+
         # Orders / Offers table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS orders (
@@ -42,8 +41,7 @@ async def init_db():
                 offerer_tel_id INTEGER NOT NULL,       -- tel_id برای راحتی
                 
                 -- وضعیت و زمان‌ها
-                created_at
-                TEXT DEFAULT CURRENT_TIMESTAMP,   -- زمان ثبت لفظ
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,   -- زمان ثبت لفظ
                 expires_at TEXT,                             -- زمان انقضا (۶۰ ثانیه بعد)
                 trade_date TEXT NOT NULL,                    -- تاریخ معامله (جلالی)
                 
@@ -232,10 +230,22 @@ async def remove_permission(user_id: int, permission: int):
         await db.commit()
 
 
-
-
-
 # ======================== Orders ========================
+
+'''            
+offerer_id=data["user_id"],
+offerer_tel_id=callback.from_user.id,
+price=parsed["price"],
+order_type=parsed["order_type"],   # خرید یا فروش
+volume=parsed["volume"],
+payment_type=parsed["payment_type"],
+trade_date=order_date.strftime("%Y/%m/%d"),
+description=parsed["description"],
+created_at=timestamp,
+expires_at=timestamp+60,
+status="active"
+'''
+
 
 async def create_order(
     offerer_id: int,
@@ -245,26 +255,48 @@ async def create_order(
     volume: float,
     payment_type: str,
     trade_date: str,
+    created_at: str,
+    status: str,
     description: str = None,
     group_chat_id: int = None,
     group_message_id: int = None
 ) -> int:
     async with aiosqlite.connect(DB_NAME) as db:
-        expires_at = (datetime.now() + timedelta(seconds=60)).isoformat()
-        
+        expires_at = created_at + 60
+
         await db.execute("""
             INSERT INTO orders (
-                offerer_id, offerer_tel_id, price, order_type, volume,
-                payment_type, trade_date, description, expires_at,
-                group_chat_id, group_message_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                offerer_id,
+                offerer_tel_id,
+                price,
+                order_type,
+                volume,
+                payment_type,
+                trade_date,
+                description,
+                expires_at,
+                group_chat_id,
+                group_message_id,
+                created_at,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            offerer_id, offerer_tel_id, price, order_type, volume,
-            payment_type, trade_date, description, expires_at,
-            group_chat_id, group_message_id
+            offerer_id,
+            offerer_tel_id,
+            price,
+            order_type,
+            volume,
+            payment_type,
+            trade_date,
+            description,
+            expires_at,
+            group_chat_id,
+            group_message_id,
+            created_at,
+            status
         ))
         await db.commit()
-        
+
         async with db.execute("SELECT last_insert_rowid()") as cursor:
             row = await cursor.fetchone()
             return row[0]
@@ -295,4 +327,10 @@ async def accept_order(order_id: int, acceptor_id: int, acceptor_tel_id: int):
 async def cancel_order(order_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
+        await db.commit()
+
+
+async def update_order_group_info(order_id: int, group_message_id: int, group_chat_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("UPDATE orders SET group_message_id = ?, group_chat_id = ? WHERE id = ?", (group_message_id, group_chat_id, order_id))
         await db.commit()

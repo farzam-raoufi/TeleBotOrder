@@ -4,6 +4,10 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import BaseFilter
 from dotenv import load_dotenv
+from persiantools import jdatetime
+import datetime
+import zoneinfo
+import jdatetime
 import os
 import re
 
@@ -11,16 +15,17 @@ import re
 from utils.parser import parse_order_text, fa_to_en_digits
 from database import (
     get_user,
-    user_has_permission
+    user_has_permission,
+    create_order,
+    update_order_group_info
 )
-import database as db
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
-from datetime import datetime
 
 load_dotenv()
 order_router = Router()
 GROUP_ID = int(os.getenv("GROUP_ID"))
+tehran_tz = zoneinfo.ZoneInfo("Asia/Tehran")
 
 
 # ==================== Custom Filter ====================
@@ -48,19 +53,38 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         return
 
     if callback.data == "confirm_order":
-        # ثبت در دیتابیس
-        # order_id = await db.create_order(
-        #     offerer_id=data["user_id"],
-        #     offerer_tel_id=callback.from_user.id,
-        #     price=parsed["price"],
-        #     order_type=parsed["order_type"],   # خرید یا فروش
-        #     volume=parsed["volume"],
-        #     payment_type=parsed["payment_type"],
-        #     trade_date=parsed["trade_date"],
-        #     description=parsed["description"]
-        # )
 
-        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} {parsed['volume']} تا"""
+        timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
+        tehran_jalali = jdatetime.datetime.fromtimestamp(
+            timestamp=timestamp, tz=tehran_tz
+        )
+        tehran_houer = tehran_jalali.strftime("%H")
+
+        if (parsed["trade_date"] == 2):
+            order_date = tehran_jalali + datetime.timedelta(days=1)
+        else:
+            order_date = tehran_jalali
+
+        if (int(tehran_houer) > 15 and parsed["trade_date"] == 1):
+            await callback.message.edit_text("بعد از ساعت 15 امکان ثبت لفظ امروزی و نقدی حاضر وجود ندارد.\n❌ لفظ لغو شد.")
+            await callback.answer("لغو شد")
+        # ثبت در دیتابیس
+        order_id = await create_order(
+            offerer_id=data["user_id"],
+            offerer_tel_id=callback.from_user.id,
+            price=parsed["price"],
+            order_type=parsed["order_type"],   # خرید یا فروش
+            volume=parsed["volume"],
+            payment_type=parsed["payment_type"],
+            trade_date=order_date.strftime("%Y/%m/%d"),
+            description=parsed["description"],
+            created_at=timestamp,
+            status="active"
+        )
+
+
+        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
         if parsed['description']:
             group_text += f"\n- {parsed['description']}\n"
         # ارسال به گروه
@@ -75,16 +99,16 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             )   # دکمه قبول کردن در گروه
         )
 
-        # await db.update_order_group_info(order_id, sent_msg.chat.id, sent_msg.message_id)
+        await update_order_group_info(order_id, sent_msg.chat.id, sent_msg.message_id)
 
         await callback.message.edit_text(
-            text=callback.message.text + "✅ تأیید و ارسال",
+            text=callback.message.text + "\n✅ تأیید و ارسال",
             parse_mode="HTML"
         )
         await callback.answer("ارسال شد ✅")
 
     elif callback.data == "cancel_order":
-        await callback.message.edit_text("❌ لغو لفظ.")
+        await callback.message.edit_text(text=callback.message.text + "\n لفظ لغو شد. ❌")
         await callback.answer("لغو شد")
 
     await state.clear()
@@ -94,6 +118,12 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 
 @order_router.message(F.text, IsOrderText())
 async def handle_order_message(message: Message, state: FSMContext):
+
+    timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
+    tehran_jalali = jdatetime.datetime.fromtimestamp(
+        timestamp=timestamp, tz=tehran_tz)
+    tehran_houer = tehran_jalali.strftime("%H")
 
     user = await get_user(message.from_user.id)
     if not user:
@@ -132,7 +162,10 @@ async def handle_order_message(message: Message, state: FSMContext):
     if not message.text or len(message.text.strip()) < 4:
         return
 
-    parsed = parse_order_text(message.text, False)
+    parsed = parse_order_text(
+        message.text,
+        int(tehran_houer) > 15
+    )
 
     if not parsed:
         await message.answer(
@@ -151,8 +184,7 @@ async def handle_order_message(message: Message, state: FSMContext):
         )
         return
 
-    # order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {"نقدی💵" if parsed['order_type'] == "فروش" else "" } {"حاظر" if parsed['trade_date'] == "امروز" else "فردا" } تا {parsed['volume']}"""
-    order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} تا {parsed['volume']}"""
+    order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
     if parsed['description']:
         order_text += f"\n- {parsed['description']}\n"
 
