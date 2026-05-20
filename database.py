@@ -311,6 +311,21 @@ async def get_order(order_id: int):
             return None
 
 
+async def get_last_order():
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT id, offerer_id, price, volume, order_type, 
+                status, created_at 
+            FROM orders 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(zip([c[0] for c in cursor.description], row))
+            return None
+
+
 async def accept_order(order_id: int, acceptor_id: int, acceptor_tel_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""

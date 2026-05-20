@@ -41,7 +41,7 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
         number = price.group(1)
         # فقط 3 یا 5 رقم مجاز
         if len(number) in [3, 5]:
-            price = int(number)
+            price = number
             text = text[len(number):]
             letters = list(text)
         else:

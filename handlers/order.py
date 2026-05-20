@@ -17,7 +17,8 @@ from database import (
     get_user,
     user_has_permission,
     create_order,
-    update_order_group_info
+    update_order_group_info,
+    get_last_order
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
@@ -35,8 +36,8 @@ class IsOrderText(BaseFilter):
 
         if not text:
             return False
-        # فقط پیام‌هایی که با ۳ تا ۵ رقم شروع شوند
-        return bool(re.match(r'^\d{3,5}', text.strip()))
+        # فقط پیام‌هایی که با ۳ تا ۵ رقم شروع مبشوند و بعد از آن ها خ یا ف باشد
+        return bool(re.match(r'^\d{3,5}[ف|خ]', text.strip()))
 # ==================== Router & Handler ====================
 
 
@@ -82,7 +83,6 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             created_at=timestamp,
             status="active"
         )
-
 
         group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
         if parsed['description']:
@@ -181,6 +181,19 @@ async def handle_order_message(message: Message, state: FSMContext):
     if parsed['volume'] < 1:
         await message.answer(
             "⚠️ کمترین وزن 1 می‌باشد.\n"
+        )
+        return
+
+    lastOrder = await get_last_order()
+
+    if (len(parsed['price']) == 3):
+        parsed['price'] = str(lastOrder["price"])[:-3] + parsed['price']
+        print(parsed['price'])
+    parsed['price'] = int(parsed['price'])
+
+    if (abs(parsed['price'] - lastOrder["price"]) > 500):
+        await message.answer(
+            f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ نباید بیشتر یا کمتر از 500 خط باشد\nبازه قیمت:\n{format(int(lastOrder["price"]+500), ",")} الی {format(int(lastOrder["price"]-500), ",")}\n"
         )
         return
 
