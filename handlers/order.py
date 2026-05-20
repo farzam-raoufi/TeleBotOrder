@@ -1,4 +1,5 @@
 # handlers/order.py
+import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -18,7 +19,8 @@ from database import (
     user_has_permission,
     create_order,
     update_order_group_info,
-    get_last_order
+    get_last_order,
+    cancel_last_user_order
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
@@ -41,22 +43,18 @@ class IsOrderText(BaseFilter):
 # ==================== Router & Handler ====================
 
 
-# ==================== قبول کردن لفظ ====================
-
+# ==================== تایید و ارسال به گروه ====================
 @order_router.callback_query(OrderStates.waiting_for_confirmation)
 async def process_confirmation(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     parsed = data.get("parsed_order")
-
     if not parsed:
         await callback.answer("خطا: اطلاعات یافت نشد!", show_alert=True)
         await state.clear()
         return
 
     if callback.data == "confirm_order":
-
         timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
-
         tehran_jalali = jdatetime.datetime.fromtimestamp(
             timestamp=timestamp, tz=tehran_tz
         )
@@ -70,36 +68,58 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         if (int(tehran_houer) > 15 and parsed["trade_date"] == 1):
             await callback.message.edit_text("بعد از ساعت 15 امکان ثبت لفظ امروزی و نقدی حاضر وجود ندارد.\n❌ لفظ لغو شد.")
             await callback.answer("لغو شد")
-        # ثبت در دیتابیس
+            await state.clear()
+            return
+
+        # ==================== ابطال لفظ‌های قبلی ====================
+        canceled_orders = await cancel_last_user_order(offerer_id=int(data["user_id"]))
+
+        # لوپ برای ویرایش پیام‌های قبلی در گروه
+        if canceled_orders:
+            for order in canceled_orders:
+                if order.get("group_message_id") and order.get("group_chat_id"):
+                    try:
+                        await callback.bot.edit_message_text(
+                            chat_id=order["group_chat_id"],
+                            message_id=order["group_message_id"],
+                            text=order["group_text"] +
+                            "\n\n❌",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        logging.error(f"خطا در ویرایش پیام گروه: {e}")
+
+        # ساخت متن برای گروه
+        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
+        if parsed['description']:
+            group_text += f"\n- {parsed['description']}\n"
+
+        # ==================== ثبت سفارش جدید ====================
         order_id = await create_order(
             offerer_id=data["user_id"],
             offerer_tel_id=callback.from_user.id,
             price=parsed["price"],
             order_type=parsed["order_type"],   # خرید یا فروش
-            volume=parsed["volume"],
+            total_volume=parsed["volume"],
             payment_type=parsed["payment_type"],
             trade_date=order_date.strftime("%Y/%m/%d"),
             description=parsed["description"],
+            group_text=group_text,
             created_at=timestamp,
             status="active"
         )
 
-        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
-        if parsed['description']:
-            group_text += f"\n- {parsed['description']}\n"
         # ارسال به گروه
-
         sent_msg = await callback.bot.send_message(
             chat_id=GROUP_ID,
             text=group_text,
             parse_mode="HTML",
             reply_markup=get_order_keyboard(
-                "order_id",
-                parsed['volume']
-            )   # دکمه قبول کردن در گروه
+                order_id,
+                parsed['volume'])
         )
 
-        await update_order_group_info(order_id, sent_msg.chat.id, sent_msg.message_id)
+        await update_order_group_info(order_id, sent_msg.message_id, sent_msg.chat.id)
 
         await callback.message.edit_text(
             text=callback.message.text + "\n✅ تأیید و ارسال",
@@ -110,11 +130,10 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
     elif callback.data == "cancel_order":
         await callback.message.edit_text(text=callback.message.text + "\n لفظ لغو شد. ❌")
         await callback.answer("لغو شد")
-
-    await state.clear()
-
+        await state.clear()
 
 # ==================== ایجاد کردن لفظ ====================
+
 
 @order_router.message(F.text, IsOrderText())
 async def handle_order_message(message: Message, state: FSMContext):
@@ -184,11 +203,9 @@ async def handle_order_message(message: Message, state: FSMContext):
         )
         return
 
-    lastOrder = await get_last_order()
-
+    lastOrder = await get_last_order() or {"price": 50000}
     if (len(parsed['price']) == 3):
         parsed['price'] = str(lastOrder["price"])[:-3] + parsed['price']
-        print(parsed['price'])
     parsed['price'] = int(parsed['price'])
 
     if (abs(parsed['price'] - lastOrder["price"]) > 500):
@@ -211,3 +228,31 @@ async def handle_order_message(message: Message, state: FSMContext):
         reply_markup=get_confirmation_keyboard()
     )
     await state.set_state(OrderStates.waiting_for_confirmation)
+
+
+@order_router.message(F.text == "ن")
+async def show_pending_users(message: Message):
+    user = await get_user(message.from_user.id)
+
+    # ==================== ابطال لفظ‌های قبلی ====================
+    canceled_orders = await cancel_last_user_order(offerer_id=int(user["id"]))
+
+    # لوپ برای ویرایش پیام‌های قبلی در گروه
+    if canceled_orders:
+        for order in canceled_orders:
+            if order.get("group_message_id") and order.get("group_chat_id"):
+                try:
+                    await message.bot.edit_message_text(
+                        chat_id=order["group_chat_id"],
+                        message_id=order["group_message_id"],
+                        text=order["group_text"] +
+                        "\n\n❌",
+                        parse_mode="HTML"
+                    )
+                    await message.answer(
+                        text=order["group_text"] +
+                        "\n\n❌",
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logging.error(f"خطا در ویرایش پیام گروه: {e}")

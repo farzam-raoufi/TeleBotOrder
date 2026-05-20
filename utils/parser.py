@@ -74,7 +74,9 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
                 payment_type = 1  # "غیر نقدی"
 
         if index == 2:
-            if char == "ن":
+            if char.isdigit():
+                volume = int(char)
+            elif char == "ن":
                 payment_type = 2  # "نقدی"
             else:
                 payment_type = 1  # "غیر نقدی"

@@ -48,11 +48,14 @@ async def init_db():
                 -- جزئیات معامله
                 price INTEGER NOT NULL,                      -- قیمت
                 order_type TEXT NOT NULL,                    -- خرید - فروش
-                volume REAL NOT NULL,                        -- حجم به کیلو
+                total_volume REAL NOT NULL,                  -- حجم به کیلو
+                trade_volume REAL,                           -- حجم به کیلو
                 payment_type TEXT NOT NULL,                  --  1 نقدی 2 - غیر نقدی
                 
                 -- توضیحات اضافی (اختیاری)
                 description TEXT,                            -- متن بعد از ":"
+                -- متن پیام
+                group_text TEXT,                            -- متن ارسال شده ر گروه
                 
                 -- وضعیت معامله
                 status TEXT DEFAULT 'active',                -- active / accepted / cancelled / expired
@@ -232,32 +235,18 @@ async def remove_permission(user_id: int, permission: int):
 
 # ======================== Orders ========================
 
-'''            
-offerer_id=data["user_id"],
-offerer_tel_id=callback.from_user.id,
-price=parsed["price"],
-order_type=parsed["order_type"],   # خرید یا فروش
-volume=parsed["volume"],
-payment_type=parsed["payment_type"],
-trade_date=order_date.strftime("%Y/%m/%d"),
-description=parsed["description"],
-created_at=timestamp,
-expires_at=timestamp+60,
-status="active"
-'''
-
-
 async def create_order(
     offerer_id: int,
     offerer_tel_id: int,
     price: int,
     order_type: str,
-    volume: float,
+    total_volume: float,
     payment_type: str,
     trade_date: str,
     created_at: str,
     status: str,
     description: str = None,
+    group_text: str = None,
     group_chat_id: int = None,
     group_message_id: int = None
 ) -> int:
@@ -270,28 +259,30 @@ async def create_order(
                 offerer_tel_id,
                 price,
                 order_type,
-                volume,
+                total_volume,
                 payment_type,
                 trade_date,
                 description,
                 expires_at,
                 group_chat_id,
                 group_message_id,
+                group_text,
                 created_at,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             offerer_id,
             offerer_tel_id,
             price,
             order_type,
-            volume,
+            total_volume,
             payment_type,
             trade_date,
             description,
             expires_at,
             group_chat_id,
             group_message_id,
+            group_text,
             created_at,
             status
         ))
@@ -311,10 +302,42 @@ async def get_order(order_id: int):
             return None
 
 
+async def cancel_last_user_order(offerer_id: int):
+    canceled_orders = []
+    
+    async with aiosqlite.connect(DB_NAME) as db:
+        # اول همه سفارشات فعال کاربر را می‌گیریم
+        async with db.execute("""
+            SELECT * FROM orders 
+            WHERE offerer_id = ? 
+              AND status = 'active'
+            ORDER BY created_at DESC
+        """, (offerer_id,)) as cursor:
+            
+            rows = await cursor.fetchall()
+            if not rows:
+                return []  # هیچ سفارشی برای کنسل کردن وجود ندارد
+            
+            columns = [col[0] for col in cursor.description]
+            
+            # تبدیل رکوردها به دیکشنری
+            for row in rows:
+                order_dict = dict(zip(columns, row))
+                canceled_orders.append(order_dict)
+
+        await db.execute(
+            "UPDATE orders SET status = 'cancelled' WHERE offerer_id = ? AND status = 'active'",
+            (offerer_id,)
+        )
+        
+        await db.commit()
+    
+    return canceled_orders
+
 async def get_last_order():
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
-            SELECT id, offerer_id, price, volume, order_type, 
+            SELECT id, offerer_id, price, total_volume, order_type, 
                 status, created_at 
             FROM orders 
             ORDER BY created_at DESC 

@@ -245,7 +245,7 @@ async def manage_user(callback: CallbackQuery):
     text = f"""👤 <b>مدیریت کاربر</b>
         نام: {user['name']}
         آیدی: <code>{user['tel_id']}</code>
-        ظرفیت روزانه: <b>{user.get('capacity', 3)}</b> کیلو
+        ظرفیت  هر معامله: <b>{user.get('capacity', 3)}</b> کیلو
         وضعیت: {status_text}
         {perm_text}
     """
@@ -342,7 +342,7 @@ async def show_updated_user_panel(message: Message, user_tel_id: int):
     text = f"""👤 <b>مدیریت کاربر</b> (بروزرسانی شده)
         نام: {user['name']}
         آیدی: <code>{user['tel_id']}</code>
-        ظرفیت روزانه: <b>{user.get('capacity', 3)}</b> کیلو
+        ظرفیت  هر معامله: <b>{user.get('capacity', 3)}</b> کیلو
         وضعیت: {status_text}
         {perm_text}"""
 
