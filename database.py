@@ -48,8 +48,8 @@ async def init_db():
                 -- جزئیات معامله
                 price INTEGER NOT NULL,                      -- قیمت
                 order_type TEXT NOT NULL,                    -- خرید - فروش
-                total_volume REAL NOT NULL,                  -- حجم به کیلو
-                trade_volume REAL,                           -- حجم به کیلو
+                total_volume INTEGER NOT NULL,                  -- حجم به کیلو
+                remaining_volume INTEGER NOT NULL,                           -- حجم به کیلو
                 payment_type TEXT NOT NULL,                  --  1 نقدی 2 - غیر نقدی
                 
                 -- توضیحات اضافی (اختیاری)
@@ -58,7 +58,7 @@ async def init_db():
                 group_text TEXT,                            -- متن ارسال شده ر گروه
                 
                 -- وضعیت معامله
-                status TEXT DEFAULT 'active',                -- active / accepted / cancelled / expired
+                status TEXT DEFAULT 'active',                -- active / fully_accepted / cancelled / expired
                 acceptor_id INTEGER,                         -- آیدی کسی که قبول کرده
                 acceptor_tel_id INTEGER,
                 accepted_at TEXT,                            -- زمان پذیرش
@@ -67,6 +67,27 @@ async def init_db():
                 group_message_id INTEGER,                    -- message_id در گروه
                 group_chat_id INTEGER,                       -- chat_id گروه
                 
+                FOREIGN KEY (offerer_id) REFERENCES users(id),
+                FOREIGN KEY (acceptor_id) REFERENCES users(id)
+            );
+        """)
+
+        # Order acceptances
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS order_acceptances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                order_id INTEGER NOT NULL,
+                offerer_id INTEGER NOT NULL,
+                offerer_tel_id INTEGER NOT NULL,
+
+                acceptor_id INTEGER NOT NULL,
+                acceptor_tel_id INTEGER NOT NULL,
+
+                accepted_volume INTEGER NOT NULL,
+                accepted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (order_id) REFERENCES orders(id),
                 FOREIGN KEY (offerer_id) REFERENCES users(id),
                 FOREIGN KEY (acceptor_id) REFERENCES users(id)
             );
@@ -260,6 +281,7 @@ async def create_order(
                 price,
                 order_type,
                 total_volume,
+                remaining_volume,
                 payment_type,
                 trade_date,
                 description,
@@ -269,13 +291,14 @@ async def create_order(
                 group_text,
                 created_at,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             offerer_id,
             offerer_tel_id,
             price,
             order_type,
             total_volume,
+            total_volume,  # remaining_volume
             payment_type,
             trade_date,
             description,
@@ -304,7 +327,7 @@ async def get_order(order_id: int):
 
 async def cancel_last_user_order(offerer_id: int):
     canceled_orders = []
-    
+
     async with aiosqlite.connect(DB_NAME) as db:
         # اول همه سفارشات فعال کاربر را می‌گیریم
         async with db.execute("""
@@ -313,13 +336,13 @@ async def cancel_last_user_order(offerer_id: int):
               AND status = 'active'
             ORDER BY created_at DESC
         """, (offerer_id,)) as cursor:
-            
+
             rows = await cursor.fetchall()
             if not rows:
                 return []  # هیچ سفارشی برای کنسل کردن وجود ندارد
-            
+
             columns = [col[0] for col in cursor.description]
-            
+
             # تبدیل رکوردها به دیکشنری
             for row in rows:
                 order_dict = dict(zip(columns, row))
@@ -329,10 +352,11 @@ async def cancel_last_user_order(offerer_id: int):
             "UPDATE orders SET status = 'cancelled' WHERE offerer_id = ? AND status = 'active'",
             (offerer_id,)
         )
-        
+
         await db.commit()
-    
+
     return canceled_orders
+
 
 async def get_last_order():
     async with aiosqlite.connect(DB_NAME) as db:
@@ -372,3 +396,34 @@ async def update_order_group_info(order_id: int, group_message_id: int, group_ch
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("UPDATE orders SET group_message_id = ?, group_chat_id = ? WHERE id = ?", (group_message_id, group_chat_id, order_id))
         await db.commit()
+
+
+async def create_order_acceptance(
+    order_id: int,
+    offerer_id: int,
+    offerer_tel_id: int,
+    acceptor_id: int,
+    acceptor_tel_id: int,
+    volume: int
+):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("BEGIN"):
+            # ایجاد رکورد پذیرش
+            await db.execute("""
+                INSERT INTO order_acceptances 
+                (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, accepted_volume)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, volume))
+
+            # به‌روزرسانی remaining_volume
+            await db.execute("""
+                UPDATE orders 
+                SET remaining_volume = remaining_volume - ?,
+                    status = CASE 
+                        WHEN remaining_volume - ? <= 0 THEN 'fully_accepted' 
+                        ELSE status 
+                    END
+                WHERE id = ?
+            """, (volume, volume, order_id))
+
+            await db.commit()

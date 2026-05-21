@@ -128,19 +128,22 @@ def get_confirmation_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def get_order_keyboard(order_id: int, count: int) -> InlineKeyboardMarkup:
-    """
-    کیبورد زیر لفظ در گروه - برای قبول کردن معامله
-    کاربر باید دو بار کلیک کند
-    """
+def get_order_keyboard(order_id: int, remaining: int):
+    if remaining <= 0:
+        return None  # یا کیبورد خالی
+
     builder = InlineKeyboardBuilder()
 
-    for i in range(count):
-        i += 1
-        builder.button(
-            text=str(+i),
+    # حداکثر ۳ تایی در هر ردیف
+    buttons = []
+    for i in range(1, remaining + 1):
+        buttons.append(InlineKeyboardButton(
+            text=str(i),
             callback_data=f"accept_order_{order_id}_{i}"
-        )
+        ))
 
-    builder.adjust(count if count <= 3 else 3)
+    # تنظیم ۳ تایی
+    for i in range(0, len(buttons), 3):
+        builder.row(*buttons[i:i+3])
+
     return builder.as_markup()

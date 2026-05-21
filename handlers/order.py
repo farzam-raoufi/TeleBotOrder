@@ -20,7 +20,9 @@ from database import (
     create_order,
     update_order_group_info,
     get_last_order,
-    cancel_last_user_order
+    cancel_last_user_order,
+    get_order,
+    create_order_acceptance
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
@@ -256,3 +258,86 @@ async def show_pending_users(message: Message):
                     )
                 except Exception as e:
                     logging.error(f"خطا در ویرایش پیام گروه: {e}")
+
+
+# ======================================== قبول کردن لفظ ========================================
+
+@order_router.callback_query(F.data.startswith("accept_order_"))
+async def handle_accept_order(callback: CallbackQuery):
+
+    user = await get_user(callback.from_user.id)
+    if not user:
+        await callback.answer(
+            "⛔ متأسفانه شما دسترسی ندارید."
+        )
+        return
+
+    # ======================== check status and permission check ========================
+
+    # ======================== status 1 = approved & capacity ========================
+
+    if user["status"] != 1:
+        if user["status"] == 0:
+            await callback.answer("⏳ درخواست شما هنوز توسط ادمین تأیید نشده است.")
+        elif user["status"] == 2:
+            await callback.answer("❌ درخواست شما رد شده است.")
+        elif user["status"] == 3:
+            await callback.answer("⛔ حساب شما مسدود شده است.")
+        return
+
+    # ======================== permission 0 = set order ========================
+    user_id = user["id"]  # id داخلی دیتابیس
+
+    has_permission = await user_has_permission(user_id, permission=0)
+
+    if not has_permission:
+        await callback.answer(
+            "⚠️ شما دسترسی ثبت لفظ ندارید.\n"
+        )
+        return
+    # ========================
+
+    try:
+        _, _, order_id_str, volume_str = callback.data.split("_")
+        order_id = int(order_id_str)
+        volume = int(volume_str)
+    except:
+        await callback.answer("خطا در پردازش درخواست")
+        return
+
+    order = await get_order(order_id)
+    if not order:
+        await callback.answer("سفارش یافت نشد", show_alert=True)
+        return
+
+    if order['remaining_volume'] < volume:
+        await callback.answer("این مقدار دیگر موجود نیست!", show_alert=True)
+        return
+
+    # ثبت پذیرش
+    await create_order_acceptance(
+        order_id=order_id,
+        offerer_id=order['offerer_id'],
+        offerer_tel_id=order['offerer_tel_id'],
+        acceptor_id=user_id,
+        acceptor_tel_id=callback.from_user.id,
+        volume=volume
+    )
+
+    # محاسبه باقی‌مانده جدید
+    new_remaining = order['remaining_volume'] - volume
+
+    # کیبورد جدید
+    new_keyboard = get_order_keyboard(order_id, new_remaining)
+
+    try:
+        await callback.bot.edit_message_text(
+            chat_id=order['group_chat_id'],
+            message_id=order['group_message_id'],
+            text=order['group_text'],
+            reply_markup=new_keyboard
+        )
+    except Exception as e:
+        logging.error(f"ویرایش پیام گروه شکست: {e}")
+
+    await callback.answer(f"✅ {volume} کیلو با موفقیت ثبت شد", show_alert=False)
