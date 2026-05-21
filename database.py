@@ -58,16 +58,12 @@ async def init_db():
                 
                 -- وضعیت معامله
                 status TEXT DEFAULT 'active',                -- active / fully_accepted / cancelled / expired
-                acceptor_id INTEGER,                         -- آیدی کسی که قبول کرده
-                acceptor_tel_id INTEGER,
-                accepted_at TEXT,                            -- زمان پذیرش
                 
                 -- پیام در گروه (برای مدیریت دکمه‌ها)
                 group_message_id INTEGER,                    -- message_id در گروه
                 group_chat_id INTEGER,                       -- chat_id گروه
                 
-                FOREIGN KEY (offerer_id) REFERENCES users(id),
-                FOREIGN KEY (acceptor_id) REFERENCES users(id)
+                FOREIGN KEY (offerer_id) REFERENCES users(id)
             );
         """)
 
@@ -84,7 +80,7 @@ async def init_db():
                 acceptor_tel_id INTEGER NOT NULL,
 
                 accepted_volume INTEGER NOT NULL,
-                accepted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                accepted_at INTEGER,
 
                 FOREIGN KEY (order_id) REFERENCES orders(id),
                 FOREIGN KEY (offerer_id) REFERENCES users(id),
@@ -361,7 +357,7 @@ async def get_last_order():
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT id, offerer_id, price, total_volume, order_type, 
-                status, created_at 
+                status, created_at, expires_at
             FROM orders 
             ORDER BY created_at DESC 
             LIMIT 1
@@ -430,17 +426,19 @@ async def create_order_acceptance(
     offerer_tel_id: int,
     acceptor_id: int,
     acceptor_tel_id: int,
-    volume: int
+    volume: int,
+    accepted_at: int
 ):
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("BEGIN"):
             # ایجاد رکورد پذیرش
-            await db.execute("""
+            cursor = await db.execute("""
                 INSERT INTO order_acceptances 
-                (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, accepted_volume)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, volume))
+                (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, accepted_volume, accepted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (order_id, offerer_id, offerer_tel_id, acceptor_id, acceptor_tel_id, volume, accepted_at))
 
+            acceptance_id = cursor.lastrowid
             # به‌روزرسانی remaining_volume
             await db.execute("""
                 UPDATE orders 
@@ -453,3 +451,5 @@ async def create_order_acceptance(
             """, (volume, volume, order_id))
 
             await db.commit()
+
+            return acceptance_id

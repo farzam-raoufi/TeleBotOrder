@@ -138,10 +138,10 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         await update_order_group_info(order_id, sent_msg.message_id, sent_msg.chat.id)
 
         await callback.message.edit_text(
-            text=callback.message.text + "\n✅ تأیید و ارسال",
+            text=callback.message.text,
             parse_mode="HTML"
         )
-        await callback.answer("ارسال شد ✅")
+        await callback.message.answer("✅لفظ توسط شما تایید شد.")
 
     elif callback.data == "cancel_order":
         await callback.message.edit_text(text=callback.message.text + "\n لفظ لغو شد. ❌")
@@ -219,15 +219,20 @@ async def handle_order_message(message: Message, state: FSMContext):
         )
         return
 
-    lastOrder = await get_last_order() or {"price": 50000}
+    lastOrder = await get_last_order() or {"price": 50000000}
     if (len(parsed['price']) == 3):
         parsed['price'] = str(lastOrder["price"])[:-3] + parsed['price']
-    parsed['price'] = int(parsed['price'])
-    
+    parsed['price'] = int(parsed['price'])*1000
+
     if not is_admin(message.from_user.id):
-        if (abs(parsed['price'] - lastOrder["price"]) > 500):
+        if (abs(parsed['price'] - lastOrder["price"]) > 500000):
             await message.answer(
-                f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ نباید بیشتر یا کمتر از 500 خط باشد\nبازه قیمت:\n{format(int(lastOrder["price"]+500), ",")} الی {format(int(lastOrder["price"]-500), ",")}\n"
+                f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ نباید بیشتر یا کمتر از 500 .خط باشد\nبازه قیمت:\n{format(int(lastOrder["price"]+500000), ",")} الی {format(int(lastOrder["price"]-500000), ",")}\n"
+            )
+            return
+        if (lastOrder["expires_at"] > timestamp and parsed['price'] > lastOrder["price"]):
+            await message.answer(
+                f"⚠️ در حال حاضر لفظ فعالی با قیمت کمتر از این لفظ وجود دارد."
             )
             return
 
@@ -278,7 +283,7 @@ async def show_pending_users(message: Message):
 # ======================================== قبول کردن لفظ ========================================
 
 @order_router.callback_query(F.data.startswith("accept_order_"))
-async def handle_accept_order(callback: CallbackQuery):
+async def handle_accept_order(callback: CallbackQuery, bot: Bot):
 
     user = await get_user(callback.from_user.id)
     if not user:
@@ -324,10 +329,19 @@ async def handle_accept_order(callback: CallbackQuery):
     if not order:
         await callback.answer("سفارش یافت نشد", show_alert=True)
         return
-
-    # ======================== reject if expired ========================
+    if (user_id == order['offerer_id']):
+        await callback.answer("ین لفظ متعلق به خود شما میباشد", show_alert=True)
+        return
+    # ======================== date and time ========================
     timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
+    tehran_jalali = jdatetime.datetime.fromtimestamp(
+        timestamp=timestamp, tz=tehran_tz)
+    tehran_date_and_time = tehran_jalali.strftime("%Y/%m/%d - %H:%M:%S")
+
+    # ================================================
+
+    # ======================== reject if expired ========================
     if order['status'] == "expired":
         await callback.answer("این لفظ منقضی شد!", show_alert=True)
         return
@@ -357,13 +371,14 @@ async def handle_accept_order(callback: CallbackQuery):
         return
 
     # ثبت پذیرش
-    await create_order_acceptance(
+    order_acceptance_id = await create_order_acceptance(
         order_id=order_id,
         offerer_id=order['offerer_id'],
         offerer_tel_id=order['offerer_tel_id'],
         acceptor_id=user_id,
         acceptor_tel_id=callback.from_user.id,
-        volume=volume
+        volume=volume,
+        accepted_at=timestamp
     )
 
     # محاسبه باقی‌مانده جدید
@@ -382,7 +397,31 @@ async def handle_accept_order(callback: CallbackQuery):
     except Exception as e:
         logging.error(f"ویرایش پیام گروه شکست: {e}")
 
-    await callback.answer(f"✅ {volume} کیلو با موفقیت ثبت شد", show_alert=False)
+    try:
+        await bot.send_message(
+            chat_id=order['offerer_tel_id'],
+            text=f"{"🔴" if order['order_type'] == "فروش" else "🔵"} {order['order_type']}\n" +
+            "🤝🏻 معامله\n" +
+            f"فی: {format(int(order["price"]), ",")}\n" +
+            f"مقدار: {volume} کیلو\n" +
+            f"برای: {order["trade_date"]}\n" +
+            f"شناسه: {order_acceptance_id}\n" +
+            # f"({order['group_text'][9:-7]})\n" +
+            f"زمان معامله: \n{tehran_date_and_time}\n"
+        )
+        await bot.send_message(
+            chat_id=callback.from_user.id,
+            text=f"{"🔵" if order['order_type'] == "فروش" else "🔴"} {"خرید" if order['order_type'] == "فروش" else "فروش"}\n" +
+            "🤝🏻 معامله\n" +
+            f"فی: {format(int(order["price"]), ",")}\n" +
+            f"مقدار: {volume} کیلو\n" +
+            f"برای: {order["trade_date"]}\n" +
+            f"شناسه: {order_acceptance_id}\n" +
+            # f"({order['group_text'][9:-7]})\n" +
+            f"زمان معامله: {tehran_date_and_time}\n"
+        )
+    except:
+        pass  # کاربر بات را بلاک کرده یا شروع نکرده
 
 
 # ================================================================================
