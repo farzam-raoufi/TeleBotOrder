@@ -122,10 +122,15 @@ async def show_all_users(message: Message):
         📅 تاریخ ثبت: {user['created_at'][:16]}"""
         وضعیت: {status_text}
 
+        if(user['status'] == 0):
+            reply_markup = get_admin_approval_keyboard(user['tel_id'])
+        else:
+            reply_markup = get_start_user_management_keyboard(user['tel_id'])
+
         await message.answer(
             text,
             parse_mode="HTML",
-            reply_markup=get_start_user_management_keyboard(user['tel_id'])
+            reply_markup = reply_markup
         )
 
     await message.answer(f"{len(users)} {title}.")

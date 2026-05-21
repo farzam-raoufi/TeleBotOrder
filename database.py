@@ -1,6 +1,5 @@
 import aiosqlite
 import logging
-from datetime import datetime, timedelta
 
 DB_NAME = "TeleBotOrder.db"
 
@@ -41,8 +40,8 @@ async def init_db():
                 offerer_tel_id INTEGER NOT NULL,       -- tel_id برای راحتی
                 
                 -- وضعیت و زمان‌ها
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,   -- زمان ثبت لفظ
-                expires_at TEXT,                             -- زمان انقضا (۶۰ ثانیه بعد)
+                created_at INTEGER,                         -- زمان ثبت لفظ
+                expires_at INTEGER,                         -- زمان انقضا (۶۰ ثانیه بعد)
                 trade_date TEXT NOT NULL,                    -- تاریخ معامله (جلالی)
                 
                 -- جزئیات معامله
@@ -396,6 +395,33 @@ async def update_order_group_info(order_id: int, group_message_id: int, group_ch
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("UPDATE orders SET group_message_id = ?, group_chat_id = ? WHERE id = ?", (group_message_id, group_chat_id, order_id))
         await db.commit()
+
+
+async def get_expired_orders(timestamp):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT id, group_chat_id, group_message_id, group_text 
+            FROM orders 
+            WHERE status = 'active' 
+              AND expires_at IS NOT NULL 
+              AND expires_at < ? 
+        """, (timestamp,)) as cursor:
+
+            rows = await cursor.fetchall()
+            columns = [col[0] for col in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+
+async def mark_order_as_expired(order_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "UPDATE orders SET status = 'expired' WHERE id = ?",
+            (order_id,)
+        )
+        await db.commit()
+
+
+# ======================== Orders acceptance ========================
 
 
 async def create_order_acceptance(

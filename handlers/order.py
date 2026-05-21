@@ -1,6 +1,6 @@
 # handlers/order.py
 import logging
-from aiogram import Router, F
+from aiogram import Bot, Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import BaseFilter
@@ -22,7 +22,9 @@ from database import (
     get_last_order,
     cancel_last_user_order,
     get_order,
-    create_order_acceptance
+    create_order_acceptance,
+    get_expired_orders,
+    mark_order_as_expired
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
@@ -31,6 +33,17 @@ load_dotenv()
 order_router = Router()
 GROUP_ID = int(os.getenv("GROUP_ID"))
 tehran_tz = zoneinfo.ZoneInfo("Asia/Tehran")
+
+
+ADMIN_ID = [
+    int(user_id)
+    for user_id in os.getenv("ADMIN_ID", "").split(",")
+    if user_id
+]
+
+
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_ID
 
 
 # ==================== Custom Filter ====================
@@ -56,7 +69,8 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         return
 
     if callback.data == "confirm_order":
-        timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        timestamp = int(datetime.datetime.now(
+            datetime.timezone.utc).timestamp())
         tehran_jalali = jdatetime.datetime.fromtimestamp(
             timestamp=timestamp, tz=tehran_tz
         )
@@ -140,7 +154,7 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 @order_router.message(F.text, IsOrderText())
 async def handle_order_message(message: Message, state: FSMContext):
 
-    timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
     tehran_jalali = jdatetime.datetime.fromtimestamp(
         timestamp=timestamp, tz=tehran_tz)
@@ -209,12 +223,13 @@ async def handle_order_message(message: Message, state: FSMContext):
     if (len(parsed['price']) == 3):
         parsed['price'] = str(lastOrder["price"])[:-3] + parsed['price']
     parsed['price'] = int(parsed['price'])
-
-    if (abs(parsed['price'] - lastOrder["price"]) > 500):
-        await message.answer(
-            f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ نباید بیشتر یا کمتر از 500 خط باشد\nبازه قیمت:\n{format(int(lastOrder["price"]+500), ",")} الی {format(int(lastOrder["price"]-500), ",")}\n"
-        )
-        return
+    
+    if not is_admin(message.from_user.id):
+        if (abs(parsed['price'] - lastOrder["price"]) > 500):
+            await message.answer(
+                f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ نباید بیشتر یا کمتر از 500 خط باشد\nبازه قیمت:\n{format(int(lastOrder["price"]+500), ",")} الی {format(int(lastOrder["price"]-500), ",")}\n"
+            )
+            return
 
     order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
     if parsed['description']:
@@ -285,14 +300,14 @@ async def handle_accept_order(callback: CallbackQuery):
             await callback.answer("⛔ حساب شما مسدود شده است.")
         return
 
-    # ======================== permission 0 = set order ========================
+    # ======================== permission 20 = accept order ========================
     user_id = user["id"]  # id داخلی دیتابیس
 
-    has_permission = await user_has_permission(user_id, permission=0)
+    has_permission = await user_has_permission(user_id, permission=1)
 
     if not has_permission:
         await callback.answer(
-            "⚠️ شما دسترسی ثبت لفظ ندارید.\n"
+            "⚠️ شما دسترسی ندارید.\n"
         )
         return
     # ========================
@@ -309,6 +324,33 @@ async def handle_accept_order(callback: CallbackQuery):
     if not order:
         await callback.answer("سفارش یافت نشد", show_alert=True)
         return
+
+    # ======================== reject if expired ========================
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+
+    if order['status'] == "expired":
+        await callback.answer("این لفظ منقضی شد!", show_alert=True)
+        return
+
+    if int(order['expires_at']) < int(timestamp):
+        await mark_order_as_expired(order['id'])
+        await callback.answer("این لفظ منقضی شد!", show_alert=True)
+
+        # تغییر وضعیت در دیتابیس
+
+        # ویرایش پیام در گروه (اینجا منطق تلگرام است)
+        # if order.get('group_chat_id') and order.get('group_message_id'):
+        #     new_text = order.get('group_text', '') + \
+        #         "\n\n⏰ **این لفظ منقضی شد**"
+
+        #     await callback.bot.edit_message_text(
+        #         chat_id=order['group_chat_id'],
+        #         message_id=order['group_message_id'],
+        #         text=new_text,
+        #         parse_mode="HTML"
+        #     )
+        return
+    # ========================
 
     if order['remaining_volume'] < volume:
         await callback.answer("این مقدار دیگر موجود نیست!", show_alert=True)
@@ -341,3 +383,35 @@ async def handle_accept_order(callback: CallbackQuery):
         logging.error(f"ویرایش پیام گروه شکست: {e}")
 
     await callback.answer(f"✅ {volume} کیلو با موفقیت ثبت شد", show_alert=False)
+
+
+# ================================================================================
+# ======================== mark expired orders as expired ========================
+
+async def process_expired_orders(bot: Bot):
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    expired_orders = await get_expired_orders(timestamp)
+
+    if not expired_orders:
+        return
+
+    for order in expired_orders:
+        try:
+            # تغییر وضعیت در دیتابیس
+            await mark_order_as_expired(order['id'])
+
+            # if order.get('group_chat_id') and order.get('group_message_id'):
+            #     new_text = order.get('group_text', '') + \
+            #         "\n\n⏰ **این لفظ منقضی شد**"
+
+            #     await bot.edit_message_text(
+            #         chat_id=order['group_chat_id'],
+            #         message_id=order['group_message_id'],
+            #         text=new_text,
+            #         parse_mode="HTML"
+            #     )
+
+        except Exception as e:
+            logging.error(
+                f"خطا در پردازش منقضی کردن سفارش {order.get('id')}: {e}")
+# ================================================================================
