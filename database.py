@@ -1,5 +1,6 @@
 import aiosqlite
 import logging
+from utils.today_iran_timestamps import get_today_iran_timestamps
 
 DB_NAME = "TeleBotOrder.db"
 
@@ -13,7 +14,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tel_id INTEGER UNIQUE NOT NULL,           -- آیدی تلگرام (user_id)
                 name TEXT,                                -- نام کاربر در تلگرام
-                capacity INTEGER DEFAULT 3,               -- محدودیت وزن معامله شده در روز
+                capacity INTEGER DEFAULT 10,               -- محدودیت وزن معامله شده در روز
                 status INTEGER DEFAULT 0,                 -- 0=pending, 1=approved, 2=rejected, 3=banned, 4 emergency exit
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -368,19 +369,6 @@ async def get_last_order():
             return None
 
 
-async def accept_order(order_id: int, acceptor_id: int, acceptor_tel_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
-            UPDATE orders 
-            SET status = 'accepted', 
-                acceptor_id = ?,
-                acceptor_tel_id = ?,
-                accepted_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (acceptor_id, acceptor_tel_id, order_id))
-        await db.commit()
-
-
 async def cancel_order(order_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
@@ -453,3 +441,21 @@ async def create_order_acceptance(
             await db.commit()
 
             return acceptance_id
+
+# ======================== user traded volume ========================
+
+
+async def get_user_today_volume(user_id: int):
+
+    toda = get_today_iran_timestamps()
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT COALESCE(SUM(accepted_volume), 0) as today_volume
+            FROM order_acceptances 
+            WHERE accepted_at BETWEEN ? AND ?
+            AND (offerer_id = ? OR acceptor_id = ?)
+        """, (toda[0], toda[1], user_id, user_id)) as cursor:
+
+            result = await cursor.fetchone()
+            return result[0] if result else 0

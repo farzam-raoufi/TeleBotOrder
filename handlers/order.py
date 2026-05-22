@@ -24,7 +24,8 @@ from database import (
     get_order,
     create_order_acceptance,
     get_expired_orders,
-    mark_order_as_expired
+    mark_order_as_expired,
+    get_user_today_volume
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from states.order import OrderStates
@@ -207,10 +208,12 @@ async def handle_order_message(message: Message, state: FSMContext):
             "⚠️ ساختار لفظ صحیح نمی‌باشد .\n"
         )
         return
+    # check dayli user capacity
+    today_volume = int(await get_user_today_volume(user_id))
 
-    if parsed['volume'] > int(user["capacity"]):
+    if (int(parsed['volume']) + today_volume) > int(user["capacity"]):
         await message.answer(
-            f"⚠️ شما دسترسی ثبت لفظ بیشتر از {user["capacity"]} کیلو را ندارید.\n"
+            f"⚠️ شما دسترسی معامله بیشتر از {user["capacity"]} کیلو را در روز ندارید.\n"
         )
         return
     if parsed['volume'] < 1:
@@ -218,11 +221,17 @@ async def handle_order_message(message: Message, state: FSMContext):
             "⚠️ کمترین وزن 1 می‌باشد.\n"
         )
         return
+    if parsed['volume'] > 3:
+        await message.answer(
+            "⚠️ بیشترین وزن 3 کیلو می‌باشد.\n"
+        )
+        return
 
     lastOrder = await get_last_order() or {"price": 50000000}
     if (len(parsed['price']) == 3):
-        parsed['price'] = str(lastOrder["price"])[:-3] + parsed['price']
-    parsed['price'] = int(parsed['price'])*1000
+        parsed['price'] = str(lastOrder["price"])[:-6] + (parsed['price']+"000")
+    else:
+        parsed['price'] = int(parsed['price'])*1000
 
     if not is_admin(message.from_user.id):
         if (abs(parsed['price'] - lastOrder["price"]) > 500000):
@@ -332,6 +341,16 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
     if (user_id == order['offerer_id']):
         await callback.answer("ین لفظ متعلق به خود شما میباشد", show_alert=True)
         return
+
+    # check dayli user capacity
+    today_volume = int(await get_user_today_volume(user_id))
+
+    if (volume + today_volume) > int(user["capacity"]):
+        await callback.answer(
+            f"⚠️ شما دسترسی معامله بیشتر از {user["capacity"]} کیلو را در روز ندارید.\n"
+        )
+        return
+
     # ======================== date and time ========================
     timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 

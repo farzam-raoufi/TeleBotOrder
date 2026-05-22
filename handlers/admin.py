@@ -282,7 +282,7 @@ async def manage_user(callback: CallbackQuery):
     text = f"""👤 <b>مدیریت کاربر</b>
         نام: {user['name']}
         آیدی: <code>{user['tel_id']}</code>
-        ظرفیت  هر معامله: <b>{user.get('capacity', 3)}</b> کیلو
+        ظرفیت  روزانه: <b>{user.get('capacity', 3)}</b> کیلو
         وضعیت: {status_text}
         {perm_text}
     """
