@@ -47,7 +47,17 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_ID
 
 
+accept_order_click = {}
+
+
+async def clean_old_clicks():
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    for k in list(accept_order_click.keys()):
+        if timestamp - accept_order_click[k] > 10:
+            del accept_order_click[k]
 # ==================== Custom Filter ====================
+
+
 class IsOrderText(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         text = fa_to_en_digits(message.text)
@@ -229,7 +239,8 @@ async def handle_order_message(message: Message, state: FSMContext):
 
     lastOrder = await get_last_order() or {"price": 50000000}
     if (len(parsed['price']) == 3):
-        parsed['price'] = str(lastOrder["price"])[:-6] + (parsed['price']+"000")
+        parsed['price'] = str(lastOrder["price"])[
+            :-6] + (parsed['price']+"000")
     else:
         parsed['price'] = int(parsed['price'])*1000
 
@@ -293,6 +304,32 @@ async def show_pending_users(message: Message):
 
 @order_router.callback_query(F.data.startswith("accept_order_"))
 async def handle_accept_order(callback: CallbackQuery, bot: Bot):
+    try:
+        _, _, order_id_str, volume_str = callback.data.split("_")
+        order_id = int(order_id_str)
+        volume = int(volume_str)
+    except:
+        await callback.answer("خطا در پردازش درخواست")
+        return
+
+    # ======================== date and time ========================
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+
+    tehran_jalali = jdatetime.datetime.fromtimestamp(
+        timestamp=timestamp, tz=tehran_tz)
+    tehran_date_and_time = tehran_jalali.strftime("%Y/%m/%d - %H:%M:%S")
+
+    # ================================================
+
+    user_id = callback.from_user.id
+    key = f"{user_id}_{order_id_str}_{volume_str}"
+    # ======================== چک کردن کلیک قبلی ========================
+    last_click = accept_order_click.get(key)
+
+    if not last_click or (timestamp - last_click) > 4:
+        accept_order_click[key] = timestamp
+        return
+    await clean_old_clicks()
 
     user = await get_user(callback.from_user.id)
     if not user:
@@ -326,20 +363,12 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
         return
     # ========================
 
-    try:
-        _, _, order_id_str, volume_str = callback.data.split("_")
-        order_id = int(order_id_str)
-        volume = int(volume_str)
-    except:
-        await callback.answer("خطا در پردازش درخواست")
-        return
-
     order = await get_order(order_id)
     if not order:
         await callback.answer("سفارش یافت نشد", show_alert=True)
         return
     if (user_id == order['offerer_id']):
-        await callback.answer("ین لفظ متعلق به خود شما میباشد", show_alert=True)
+        await callback.answer("این لفظ متعلق به خود شما میباشد", show_alert=True)
         return
 
     # check dayli user capacity
@@ -350,15 +379,6 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
             f"⚠️ شما دسترسی معامله بیشتر از {user["capacity"]} کیلو را در روز ندارید.\n"
         )
         return
-
-    # ======================== date and time ========================
-    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
-
-    tehran_jalali = jdatetime.datetime.fromtimestamp(
-        timestamp=timestamp, tz=tehran_tz)
-    tehran_date_and_time = tehran_jalali.strftime("%Y/%m/%d - %H:%M:%S")
-
-    # ================================================
 
     # ======================== reject if expired ========================
     if order['status'] == "expired":
