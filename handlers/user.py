@@ -1,5 +1,5 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import Router, F, Bot
+from aiogram.types import Message, CallbackQuery, ChatJoinRequest
 from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
@@ -17,6 +17,7 @@ ADMIN_ID = [
     for user_id in os.getenv("ADMIN_ID", "").split(",")
     if user_id
 ]
+GROUP_ID = int(os.getenv("GROUP_ID"))
 
 
 def is_admin(user_id: int) -> bool:
@@ -93,3 +94,33 @@ async def request_membership(callback: CallbackQuery):
         "✅ درخواست عضویت شما ارسال شد.\n"
         "ادمین به‌زودی بررسی خواهد کرد."
     )
+
+# ------------------- Chat Join Request -------------------
+
+
+@user_router.chat_join_request(F.chat.id == GROUP_ID)
+async def handle_join_request(join_request: ChatJoinRequest, bot: Bot):
+    user_id = join_request.from_user.id
+
+    user = await get_user(user_id)
+
+    if user and user["status"] == 1:           # فقط کاربران تأیید شده
+        await bot.approve_chat_join_request(
+            chat_id=join_request.chat.id,
+            user_id=user_id
+        )
+        # پیام خوش‌آمدگویی اختیاری
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="✅ شما با موفقیت به گروه اضافه شدید.\n\n"
+                     "حالا می‌توانید از تمام امکانات ربات استفاده کنید."
+            )
+        except:
+            pass
+    else:
+        # رد درخواست اگر تأیید نشده باشد
+        await bot.decline_chat_join_request(
+            chat_id=join_request.chat.id,
+            user_id=user_id
+        )

@@ -33,6 +33,8 @@ ADMIN_ID = [
     for user_id in os.getenv("ADMIN_ID", "").split(",")
     if user_id
 ]
+GROUP_ID = int(os.getenv("GROUP_ID"))
+INVITE_LINK = os.getenv("INVITE_LINK")
 
 
 def is_admin(user_id: int) -> bool:
@@ -76,7 +78,7 @@ async def show_all_users(message: Message):
     if not is_admin(message.from_user.id):
         return
 
-    # 0=pending, 1=approved, 2=rejected, 3=banned, 4 
+    # 0=pending, 1=approved, 2=rejected, 3=banned, 4
     match message.text:
         case "لیست کاربران فعال ✅":
             users = await get_users_by_status(1)
@@ -122,7 +124,7 @@ async def show_all_users(message: Message):
         📅 تاریخ ثبت: {user['created_at'][:16]}"""
         وضعیت: {status_text}
 
-        if(user['status'] == 0):
+        if (user['status'] == 0):
             reply_markup = get_admin_approval_keyboard(user['tel_id'])
         else:
             reply_markup = get_start_user_management_keyboard(user['tel_id'])
@@ -130,7 +132,7 @@ async def show_all_users(message: Message):
         await message.answer(
             text,
             parse_mode="HTML",
-            reply_markup = reply_markup
+            reply_markup=reply_markup
         )
 
     await message.answer(f"{len(users)} {title}.")
@@ -147,12 +149,24 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
     user_tel_id = int(callback.data.split("_")[1])
     await set_user_status(user_tel_id, 1)  # approved
 
+    user = await get_user(user_tel_id)
+    if not user:
+        await callback.answer("کاربر یافت نشد!", show_alert=True)
+        return
+    user_id = user['id']
+    await add_permission(user_id, 0)
+    await add_permission(user_id, 1)
+
     # ارسال پیام به کاربر
     try:
         await bot.send_message(
             chat_id=user_tel_id,
-            text="✅ **تبریک!**\n\n"
-                 "شما می‌توانید از امکانات ربات استفاده کنید."
+            text="✅ **تبریک! حساب شما تأیید شد.**\n\n"
+                 "برای دسترسی کامل به ربات، باید عضو گروه شوید:\n\n"
+                 f"🔗 [عضویت در گروه]({INVITE_LINK})\n\n"
+                 "بعد از عضویت، به‌صورت خودکار دسترسی شما فعال می‌شود.",
+            parse_mode="Markdown",
+            disable_web_page_preview=True
         )
     except:
         pass  # کاربر بات را بلاک کرده یا شروع نکرده
@@ -197,6 +211,24 @@ async def banned_user(callback: CallbackQuery, bot: Bot):
 
     user_tel_id = int(callback.data.split("_")[1])
     await set_user_status(user_tel_id, 3)  # banned
+
+    user = await get_user(user_tel_id)
+    if not user:
+        await callback.answer("کاربر یافت نشد!", show_alert=True)
+        return
+    user_id = user['id']
+    await remove_permission(user_id, 0)
+    await remove_permission(user_id, 1)
+
+    try:
+        await bot.kick_chat_member(
+            chat_id=GROUP_ID,      # آیدی گروه شما
+            user_id=user_tel_id
+        )
+        await callback.answer("✅ کاربر از گروه حذف شد", show_alert=True)
+    except Exception as e:
+        await callback.answer("⚠️ خطا در حذف کاربر از گروه", show_alert=True)
+        print(f"Error kicking user: {e}")
 
     # ارسال پیام به کاربر
     try:
