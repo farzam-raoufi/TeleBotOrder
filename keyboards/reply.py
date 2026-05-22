@@ -11,6 +11,21 @@ def get_user_main_menu():
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 
+def get_order_cancel_menu(last_action: str = None):
+
+    keyboard = []
+    
+    if last_action:
+        keyboard.append([KeyboardButton(text=last_action)])
+    
+    keyboard.append([KeyboardButton(text="❌ نشد")])
+    keyboard.append([KeyboardButton(text="🔙 بازگشت به منو")])
+    
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+
+
+
 def get_admin_main_menu():
     """منوی اصلی ادمین"""
     keyboard = [

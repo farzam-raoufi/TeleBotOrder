@@ -28,6 +28,7 @@ from database import (
     get_user_today_volume
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
+from keyboards.reply import get_order_cancel_menu, get_user_main_menu
 from states.order import OrderStates
 
 load_dotenv()
@@ -48,6 +49,7 @@ def is_admin(user_id: int) -> bool:
 
 
 accept_order_click = {}
+last_user_actions = {}
 
 
 async def clean_old_clicks():
@@ -92,11 +94,15 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         else:
             order_date = tehran_jalali
 
-        if (int(tehran_houer) > 15 and parsed["trade_date"] == 1):
+        if (int(tehran_houer) > 14 and parsed["trade_date"] == 1):
             await callback.message.edit_text("بعد از ساعت 15 امکان ثبت لفظ امروزی و نقدی حاضر وجود ندارد.\n❌ لفظ لغو شد.")
             await callback.answer("لغو شد")
             await state.clear()
             return
+
+        weekday = tehran_jalali.weekday()
+        if (weekday in [4, 5, 6] and parsed["trade_date"] == 2):
+            order_date = tehran_jalali + datetime.timedelta(days=7 - (weekday))
 
         # ==================== ابطال لفظ‌های قبلی ====================
         canceled_orders = await cancel_last_user_order(offerer_id=int(data["user_id"]))
@@ -152,7 +158,13 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             text=callback.message.text,
             parse_mode="HTML"
         )
-        await callback.message.answer("✅لفظ توسط شما تایید شد.")
+
+        # نمایش منوی نشد / بازگشت
+        await callback.message.answer(
+            "✅لفظ توسط شما تایید شد.",
+            reply_markup=get_order_cancel_menu(
+                last_action=last_user_actions[callback.from_user.id])
+        )
 
     elif callback.data == "cancel_order":
         await callback.message.edit_text(text=callback.message.text + "\n لفظ لغو شد. ❌")
@@ -208,9 +220,11 @@ async def handle_order_message(message: Message, state: FSMContext):
     if not message.text or len(message.text.strip()) < 4:
         return
 
+    weekday = tehran_jalali.weekday()  # 0 sat 1 sun 2 mon 3 tue 4 wed 5 thu 6 fri
+    force_tomorrow = (weekday in [5, 6] or int(tehran_houer) > 14)
     parsed = parse_order_text(
         message.text,
-        int(tehran_houer) > 15
+        force_tomorrow
     )
 
     if not parsed:
@@ -270,9 +284,10 @@ async def handle_order_message(message: Message, state: FSMContext):
         reply_markup=get_confirmation_keyboard()
     )
     await state.set_state(OrderStates.waiting_for_confirmation)
+    last_user_actions[message.from_user.id] = message.text
 
 
-@order_router.message(F.text == "ن")
+@order_router.message(F.text.in_({"ن", "❌ نشد"}))
 async def show_pending_users(message: Message):
     user = await get_user(message.from_user.id)
 
@@ -294,7 +309,8 @@ async def show_pending_users(message: Message):
                     await message.answer(
                         text=order["group_text"] +
                         "\n\n❌",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        reply_markup=get_user_main_menu()
                     )
                 except Exception as e:
                     logging.error(f"خطا در ویرایش پیام گروه: {e}")

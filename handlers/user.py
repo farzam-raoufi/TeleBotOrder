@@ -124,3 +124,9 @@ async def handle_join_request(join_request: ChatJoinRequest, bot: Bot):
             chat_id=join_request.chat.id,
             user_id=user_id
         )
+
+
+@user_router.message(F.text == "🔙 بازگشت به منو")
+async def back_to_main_menu(message: Message):
+
+    await message.answer("🔙 به منوی اصلی بازگشتید.", reply_markup=get_user_main_menu())
