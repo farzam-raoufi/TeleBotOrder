@@ -5,7 +5,7 @@ import zoneinfo
 import jdatetime
 from jinja2 import Template
 from weasyprint import HTML
-from database import get_user_today_trades
+from database import get_for_admin_trades
 from utils.today_iran_timestamps import get_today_iran_timestamps
 
 # ================ کاهش شدید لاگ‌ها ================
@@ -141,6 +141,8 @@ def get_today_report_html(trades, username: str, report_date: str, report_dateti
                     <tr>
                         <th>ردیف</th>
                         <th>شماره</th>
+                        <th>لفط دهند</th>
+                        <th>لفط گیرنده</th>
                         <th>نوع</th>
                         <th>حجم</th>
                         <th>حالت</th>
@@ -154,7 +156,9 @@ def get_today_report_html(trades, username: str, report_date: str, report_dateti
                     {% for i, t in trades %}
                     <tr>
                         <td>{{ i }}</td>
-                        <td>{{ t.id }}</td>
+                        <td>{{ t.acceptance_id }}</td>
+                        <td>{{ t.offerer_name }}</td>
+                        <td>{{ t.acceptor_name }}</td>
                         <td class="{{ 'buy' if t.order_type == 'خرید' else 'sell' }}">{{ t.order_type }}</td>
                         <td>{{ t.accepted_volume }}</td>
                         <td>عادی</td>
@@ -190,7 +194,6 @@ def get_today_report_html(trades, username: str, report_date: str, report_dateti
 
 
 async def generate_today_report(user_id: int, username: str = None):
-
     tehran_tz = zoneinfo.ZoneInfo("Asia/Tehran")
     timestamp = datetime.datetime.now(datetime.timezone.utc).timestamp()
     tehran_jalali = jdatetime.datetime.fromtimestamp(
@@ -200,7 +203,7 @@ async def generate_today_report(user_id: int, username: str = None):
     report_datetime = tehran_jalali.strftime("%Y/%m/%d %H:%M:%S")
 
     timestamps = get_today_iran_timestamps()
-    raw_trades = await get_user_today_trades(user_id, timestamps[0], timestamps[1])
+    raw_trades = await get_for_admin_trades(timestamps[0] - 864000, timestamps[1])
 
     trades = []
     for trade in raw_trades:
@@ -219,3 +222,16 @@ async def generate_today_report(user_id: int, username: str = None):
 
     HTML(string=html_content).write_pdf(pdf_path)
     return pdf_path
+
+
+
+
+
+# [
+#     {'acceptance_id': 6, 'order_id': 14, 'order_type': 'فروش', 'order_text': '56,900,000 🔴 فروش بی حواله فردا 💵 3 تا', 'price': 56900000, 'accepted_volume': 3, 'accepted_at': 1779568693, 'description': None, 'offerer_id': 1, 'acceptor_id': 2, 'offerer_name': 'Fffff', 'acceptor_name': 'Farzam'},
+#     {'acceptance_id': 5, 'order_id': 13, 'order_type': 'خرید', 'order_text': '56,700,000 🔵 خرید بی حواله فردا 💵 3 تا', 'price': 56700000, 'accepted_volume': 2, 'accepted_at': 1779568612, 'description': None, 'offerer_id': 1, 'acceptor_id': 2, 'offerer_name': 'Fffff', 'acceptor_name': 'Farzam'},
+#     {'acceptance_id': 4, 'order_id': 12, 'order_type': 'خرید', 'order_text': '56,800,000 🔵 خرید با حواله 💵 2 تا', 'price': 56800000, 'accepted_volume': 1, 'accepted_at': 1779557680, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
+#     {'acceptance_id': 3, 'order_id': 11, 'order_type': 'خرید', 'order_text': '56,400,000 🔵 خرید با حواله 💵 3 تا', 'price': 56400000, 'accepted_volume': 2, 'accepted_at': 1779557529, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
+#     {'acceptance_id': 2, 'order_id': 3, 'order_type': 'خرید', 'order_text': '56,400,000 🔵 خرید با حواله 💵 3 تا', 'price': 56400000, 'accepted_volume': 1, 'accepted_at': 1779452712, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
+#     {'acceptance_id': 1, 'order_id': 2, 'order_type': 'خرید', 'order_text': '56,800,000 🔵 خرید نقدی حاضر 💵 3 تا', 'price': 56800000, 'accepted_volume': 2, 'accepted_at': 1779452482, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'}
+# ]

@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -23,6 +23,7 @@ from keyboards.inline import (
     get_start_user_management_keyboard,
     get_permissions_management_keyboard
 )
+from utils.admin_report_generator import generate_today_report
 
 
 admin_router = Router()
@@ -510,3 +511,35 @@ async def refresh_permissions_panel(callback: CallbackQuery, user_tel_id: int):
             user_tel_id, has_set_order, has_accept_order, user.get('status'),
         )
     )
+
+
+
+@admin_router.message(F.text == "📊 گزارش معاملات ده روز گذشته")
+async def send_today_report(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("شما ادمین نیستید!", show_alert=True)
+        return
+    
+    user = await get_user(message.from_user.id)
+
+    try:
+        pdf_path = await generate_today_report(
+            user_id=user["id"],
+            username=message.from_user.full_name
+        )
+
+        # استفاده از FSInputFile (روش درست در aiogram 3)
+        document = FSInputFile(pdf_path)
+
+        await message.answer_document(
+            document=document,
+            caption=f"📊 گزارش معاملات\n",
+            parse_mode="HTML"
+        )
+
+        # حذف فایل بعد از ارسال (برای جلوگیری از پر شدن حافظه)
+        os.remove(pdf_path)
+
+    except Exception as e:
+        await message.answer("❌ خطا در تولید گزارش. لطفا مجددا تلاش کنید.")
+        print(f"Report error: {e}")

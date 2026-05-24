@@ -467,7 +467,7 @@ async def get_user_today_trades(user_id: int, start_ts: int, end_ts: int):
     """دریافت معاملات امروز کاربر (هم به عنوان عرضه‌کننده هم پذیرنده)"""
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("PRAGMA foreign_keys = ON")
-        
+
         async with db.execute("""
             SELECT 
                 oa.id,
@@ -486,7 +486,48 @@ async def get_user_today_trades(user_id: int, start_ts: int, end_ts: int):
               AND (oa.offerer_id = ? OR oa.acceptor_id = ?)
             ORDER BY oa.accepted_at DESC
         """, (start_ts, end_ts, user_id, user_id)) as cursor:
+
+            rows = await cursor.fetchall()
+            columns = [col[0] for col in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+# ======================== admin traded report ========================
+
+
+async def get_for_admin_trades(start_ts: int, end_ts: int):
+    """دریافت معاملات کاربران"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("PRAGMA foreign_keys = ON")
+
+        async with db.execute("""
+            SELECT
+                oa.id AS acceptance_id,
+                oa.order_id,
+                o.order_type,           -- خرید یا فروش
+                o.group_text,
+                o.price,
+                oa.accepted_volume,
+                oa.accepted_at,
+                o.description,
+                oa.offerer_id,
+                oa.acceptor_id,
+                
+                -- اطلاعات لفظ دهنده (Offerer)
+                offerer.name AS offerer_name,
+                
+                -- اطلاعات لفظ گیرنده (Acceptor)
+                acceptor.name AS acceptor_name
+                
+            FROM order_acceptances oa
+            JOIN orders o ON oa.order_id = o.id
             
+            JOIN users offerer ON oa.offerer_id = offerer.id
+            JOIN users acceptor ON oa.acceptor_id = acceptor.id
+            
+            WHERE oa.accepted_at BETWEEN ? AND ?
+            ORDER BY oa.accepted_at DESC
+            """, (start_ts, end_ts)) as cursor:
+
             rows = await cursor.fetchall()
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row)) for row in rows]

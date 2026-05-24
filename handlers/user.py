@@ -148,8 +148,8 @@ async def send_today_report(message: Message):
             parse_mode="HTML"
         )
 
-        # اختیاری: حذف فایل بعد از ارسال (برای جلوگیری از پر شدن حافظه)
-        # os.remove(pdf_path)
+        # حذف فایل بعد از ارسال (برای جلوگیری از پر شدن حافظه)
+        os.remove(pdf_path)
 
     except Exception as e:
         await message.answer("❌ خطا در تولید گزارش. لطفا مجددا تلاش کنید.")
@@ -159,4 +159,10 @@ async def send_today_report(message: Message):
 @user_router.message(F.text == "🔙 بازگشت به منو")
 async def back_to_main_menu(message: Message):
 
-    await message.answer("🔙 به منوی اصلی بازگشتید.", reply_markup=get_user_main_menu())
+    if is_admin(message.from_user.id):
+        await message.answer(
+            "🔙 به منوی اصلی بازگشتید.",
+            reply_markup=get_admin_main_menu()
+        )
+    else:
+        await message.answer("🔙 به منوی اصلی بازگشتید.", reply_markup=get_user_main_menu())
