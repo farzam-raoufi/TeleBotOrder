@@ -459,3 +459,34 @@ async def get_user_today_volume(user_id: int):
 
             result = await cursor.fetchone()
             return result[0] if result else 0
+
+
+# ======================== user traded report ========================
+
+async def get_user_today_trades(user_id: int, start_ts: int, end_ts: int):
+    """دریافت معاملات امروز کاربر (هم به عنوان عرضه‌کننده هم پذیرنده)"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("PRAGMA foreign_keys = ON")
+        
+        async with db.execute("""
+            SELECT 
+                oa.id,
+                oa.order_id,
+                o.order_type,           -- خرید یا فروش
+                o.group_text,
+                o.price,
+                oa.accepted_volume,
+                oa.accepted_at,
+                o.description,
+                oa.offerer_id,
+                oa.acceptor_id
+            FROM order_acceptances oa
+            JOIN orders o ON oa.order_id = o.id
+            WHERE oa.accepted_at BETWEEN ? AND ?
+              AND (oa.offerer_id = ? OR oa.acceptor_id = ?)
+            ORDER BY oa.accepted_at DESC
+        """, (start_ts, end_ts, user_id, user_id)) as cursor:
+            
+            rows = await cursor.fetchall()
+            columns = [col[0] for col in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]

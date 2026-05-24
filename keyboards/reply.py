@@ -5,7 +5,7 @@ def get_user_main_menu():
     """منوی اصلی کاربران معمولی"""
     keyboard = [
         [KeyboardButton(text="📋 ثبت درخواست معامله")],
-        [KeyboardButton(text="📊 درخواست‌های من")],
+        [KeyboardButton(text="📊 گزارش معاملات امروز")],
         [KeyboardButton(text="ℹ️ راهنما")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
@@ -35,7 +35,7 @@ def get_admin_main_menu():
         [KeyboardButton(text="لیست کاربران مسدود شده 🚫")],
         [KeyboardButton(text="لیست کاربران (همه کاربران) 👥")],
 
-        [KeyboardButton(text="📊 آمار کلی")],
+        [KeyboardButton(text="📊 گزارش معاملات ده روز گذشته")],
         [KeyboardButton(text="⚙️ تنظیمات")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

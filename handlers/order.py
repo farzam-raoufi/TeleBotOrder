@@ -112,6 +112,10 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             for order in canceled_orders:
                 if order.get("group_message_id") and order.get("group_chat_id"):
                     try:
+                        
+                        if order['description']:
+                            order["group_text"] += f"\n- {order['description']}\n"
+
                         await callback.bot.edit_message_text(
                             chat_id=order["group_chat_id"],
                             message_id=order["group_message_id"],
@@ -124,8 +128,6 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 
         # ساخت متن برای گروه
         group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
-        if parsed['description']:
-            group_text += f"\n- {parsed['description']}\n"
 
         # ==================== ثبت سفارش جدید ====================
         order_id = await create_order(
@@ -141,6 +143,9 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             created_at=timestamp,
             status="active"
         )
+        
+        if parsed['description']:
+            group_text += f"\n- {parsed['description']}\n"
 
         # ارسال به گروه
         sent_msg = await callback.bot.send_message(
@@ -253,8 +258,8 @@ async def handle_order_message(message: Message, state: FSMContext):
 
     lastOrder = await get_last_order() or {"price": 50000000}
     if (len(parsed['price']) == 3):
-        parsed['price'] = str(lastOrder["price"])[
-            :-6] + (parsed['price']+"000")
+        parsed['price'] = int(str(lastOrder["price"])[
+            :-6] + (parsed['price']+"000"))
     else:
         parsed['price'] = int(parsed['price'])*1000
 
@@ -299,6 +304,8 @@ async def show_pending_users(message: Message):
         for order in canceled_orders:
             if order.get("group_message_id") and order.get("group_chat_id"):
                 try:
+                    if order['description']:
+                        order["group_text"] += f"\n- {order['description']}\n"
                     await message.bot.edit_message_text(
                         chat_id=order["group_chat_id"],
                         message_id=order["group_message_id"],
@@ -443,10 +450,12 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
     new_keyboard = get_order_keyboard(order_id, new_remaining)
 
     try:
+        if order['description']:
+            order["group_text"] += f"\n- {order['description']}\n"
         await callback.bot.edit_message_text(
             chat_id=order['group_chat_id'],
             message_id=order['group_message_id'],
-            text=order['group_text'],
+            text=order['group_text'], 
             reply_markup=new_keyboard
         )
     except Exception as e:

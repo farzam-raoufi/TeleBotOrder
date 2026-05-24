@@ -1,12 +1,15 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, ChatJoinRequest
+from aiogram.types import Message, CallbackQuery, ChatJoinRequest, FSInputFile
 from aiogram.filters import Command
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 
 from database import get_user, create_user, set_user_status, is_banned
 from keyboards.inline import get_start_keyboard, get_admin_main_menu
 from keyboards.reply import get_user_main_menu, get_admin_main_menu
+from utils.report_generator import generate_today_report
+
 
 user_router = Router()
 
@@ -124,6 +127,33 @@ async def handle_join_request(join_request: ChatJoinRequest, bot: Bot):
             chat_id=join_request.chat.id,
             user_id=user_id
         )
+
+
+@user_router.message(F.text == "📊 گزارش معاملات امروز")
+async def send_today_report(message: Message):
+    user = await get_user(message.from_user.id)
+
+    try:
+        pdf_path = await generate_today_report(
+            user_id=user["id"],
+            username=message.from_user.full_name
+        )
+
+        # استفاده از FSInputFile (روش درست در aiogram 3)
+        document = FSInputFile(pdf_path)
+
+        await message.answer_document(
+            document=document,
+            caption=f"📊 گزارش معاملات امروز شما\n",
+            parse_mode="HTML"
+        )
+
+        # اختیاری: حذف فایل بعد از ارسال (برای جلوگیری از پر شدن حافظه)
+        # os.remove(pdf_path)
+
+    except Exception as e:
+        await message.answer("❌ خطا در تولید گزارش. لطفا مجددا تلاش کنید.")
+        print(f"Report error: {e}")
 
 
 @user_router.message(F.text == "🔙 بازگشت به منو")
