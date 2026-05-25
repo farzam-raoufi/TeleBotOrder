@@ -154,9 +154,9 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
     if not user:
         await callback.answer("کاربر یافت نشد!", show_alert=True)
         return
-    user_id = user['id']
-    await add_permission(user_id, 0)
-    await add_permission(user_id, 1)
+    # user_id = user['id']
+    # await add_permission(user_id, 0)
+    # await add_permission(user_id, 1)
 
     # ارسال پیام به کاربر
     try:

@@ -20,7 +20,7 @@ def fa_to_en_digits(text):
 # date-type
 def data_to_order(date: int, type: int):
     orders = {
-        "1-1": "امروزی",
+        "1-1": "امروزی☀️",
         "1-2": "نقدی حاضر",
         "2-1": "با حواله",
         "2-2": "بی حواله فردا",
@@ -54,6 +54,7 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
     payment_type = 1  # "غیر نقدی"
     description = None
 
+    isNotDescription = True
     for index, char in enumerate(letters):
         if index == 0:
             if char == "خ":
@@ -74,19 +75,24 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
                 payment_type = 1  # "غیر نقدی"
 
         if index == 2:
-            if char.isdigit():
+            if isNotDescription and char.isdigit():
                 volume = int(char)
             elif char == "ن":
                 payment_type = 2  # "نقدی"
             else:
                 payment_type = 1  # "غیر نقدی"
 
-        if char.isdigit():
+        if isNotDescription and char.isdigit():
             volume = int(char)
 
-        if len(letters) > (index + 2):
-            if letters[index + 1] == ":":
-                description = text[index + 2:]
+        if char == ":":
+            isNotDescription = False
+            description = "توضیحات❗:" + text[index + 1:]
+            
+            
+        # if len(letters) > (index + 2):
+        #     if letters[index + 1] == ":":
+        #         description = text[index + 2:]
 
     if (force_tomorrow):
         trade_date = 2

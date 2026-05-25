@@ -27,6 +27,18 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_ID
 
 
+# @user_router.message(Command("getgroupid"))
+# async def get_group_id(message: Message):
+#     chat_id = message.chat.id
+#     chat_type = message.chat.type
+
+#     await message.answer(
+#         f"📌 <b>Group ID:</b> <code>{chat_id}</code>\n"
+#         f"👥 <b>Chat Type:</b> {chat_type}",
+#         parse_mode="HTML"
+#     )
+
+
 @user_router.message(Command("start"))
 async def cmd_start(message: Message):
     user = await get_user(message.from_user.id)
