@@ -173,7 +173,10 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
         # member_limit=1,
         expire_date=None
     )
-
+    await bot.unban_chat_member(
+        chat_id=CHANNEL_ID,
+        user_id=user_tel_id
+    )
     # ارسال پیام به کاربر
     try:
         await bot.send_message(
@@ -242,9 +245,9 @@ async def banned_user(callback: CallbackQuery, bot: Bot):
     await remove_permission(user_id, 1)
 
     try:
-        await bot.kick_chat_member(
-            chat_id=CHANNEL_ID,      # آیدی گروه شما
-            user_id=user_tel_id
+        await bot.ban_chat_member(
+            chat_id=CHANNEL_ID,
+            user_id=user_tel_id,
         )
         await callback.answer("✅ کاربر از گروه حذف شد", show_alert=True)
     except Exception as e:

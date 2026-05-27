@@ -78,6 +78,29 @@ class IsOrderText(BaseFilter):
 @order_router.callback_query(OrderStates.waiting_for_confirmation)
 async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 
+    user = await get_user(callback.from_user.id)
+
+    if user:
+        match user["status"]:
+            case 1:
+                # کاربر تایید شده، ادامه برنامه
+                pass
+            case 0:
+                await callback.answer("درخواست شما برای استفاده از ربات ثبت شده. لطفا منتظر تایید ادمین بمانید.")
+                return
+            case 2:
+                await callback.answer("درخواست عضویت شما توسط ادمین تأیید نشده..")
+                return
+            case 3:
+                await callback.answer("⛔ متأسفانه حساب شما مسدود شد.")
+                return
+            case 4:
+                await callback.answer("🚨حساب شما در حالت اضطراری قرار دارد🚨")
+                return
+            case _:
+                await callback.answer("وضعیت کاربر نامعتبر است.")
+                return
+
     data = await state.get_data()
     parsed = data.get("parsed_order")
     confirmation_timestamp = data.get("confirmation_timestamp")
@@ -199,16 +222,14 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         )
 
         # ==================== ارسال نسخه کامل به کانال ادمین‌ها ====================
-        
+
         chat_id_str = str(sent_msg.chat.id)
         if chat_id_str.startswith('-100'):
             channel_id = chat_id_str[4:]  # Remove -100
             public_link = f"https://t.me/c/{channel_id}/{sent_msg.message_id}"
         else:
             public_link = "#"
-            
-            
-        user = await get_user(callback.from_user.id)
+
         admin_text = f"""🆔 <b>شماره سفارش:</b> <code>{order_id}</code>\n👤 <b>کاربر: {user['name']}</b>\n🔗 <b>یوزرنیم تلگرام:</b> @{callback.from_user.username or 'No username'}\n🆔 <b>شناسه تلگرام کاربر:</b> <code>{callback.from_user.id}</code>\n💰 {group_text}\n📍 <a href="{public_link}">مشاهده پیام در کانال</a>\n⏰ {tehran_jalali.strftime("%Y/%m/%d %H:%M:%S")}"""
 
         await callback.bot.send_message(
@@ -239,7 +260,6 @@ async def handle_order_message(message: Message, state: FSMContext):
 
     working_hours = await get_config_by_name("ساعت-کاری")
 
-    print(working_hours)
     if working_hours:
         working_hours = working_hours[0]['value']
 
@@ -277,6 +297,8 @@ async def handle_order_message(message: Message, state: FSMContext):
             await message.answer("❌ درخواست شما رد شده است.")
         elif user["status"] == 3:
             await message.answer("⛔ حساب شما مسدود شده است.")
+        elif user["status"] == 4:
+            await message.answer("🚨حساب شما در حالت اضطراری قرار دارد🚨")
         return
 
     # ======================== permission 0 = set order ========================
@@ -471,6 +493,8 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
         elif user["status"] == 2:
             await callback.answer("❌ درخواست شما رد شده است.")
         elif user["status"] == 3:
+            await callback.answer("⛔ حساب شما مسدود شده است.")
+        elif user["status"] == 4:
             await callback.answer("⛔ حساب شما مسدود شده است.")
         return
 

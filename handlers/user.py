@@ -8,7 +8,7 @@ from datetime import datetime
 import os
 
 from database import get_user, create_user, set_user_status, is_banned
-from keyboards.inline import get_start_keyboard, get_admin_main_menu
+from keyboards.inline import get_start_keyboard, get_admin_main_menu, get_emergency_confirmation_keyboard
 from keyboards.reply import get_user_main_menu, get_admin_main_menu
 from utils.report_generator import generate_today_report
 
@@ -111,14 +111,15 @@ async def request_membership(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(Registration.waiting_for_fullname)
     await callback.answer()
-    
+
+
 @user_router.message(Registration.waiting_for_fullname)
 async def process_fullname(message: Message, state: FSMContext):
     full_name = message.text.strip()
 
     # ایجاد کاربر با نام دلخواه کاربر
     user = await create_user(message.from_user.id, full_name)
-    
+
     await message.answer(
         "✅ درخواست عضویت شما ثبت شد.\n"
         "ادمین به‌زودی بررسی خواهد کرد.",
@@ -194,3 +195,54 @@ async def back_to_main_menu(message: Message):
         )
     else:
         await message.answer("🔙 به منوی اصلی بازگشتید.", reply_markup=get_user_main_menu())
+
+# ==================== خروج اضطراری - مرحله اول ====================
+
+
+@user_router.message(F.text == "🚨 خروج اضطراری 🚨")
+async def emergency_exit_request(message: Message, state: FSMContext):
+    await message.answer(
+        "⚠️ **هشدار مهم**\n\n"
+        "آیا واقعاً می‌خواهید **خروج اضطراری** انجام دهید؟\n"
+        "با این کار وضعیت شما به حالت اضطراری تغییر کرده و ممکن است تا اطلاع ثانوی نتوانید سفارش ثبت کنید.",
+        reply_markup=get_emergency_confirmation_keyboard()
+    )
+    await state.set_state("waiting_for_emergency_confirmation")
+
+# ==================== پردازش تأیید یا انصراف ====================
+
+
+@user_router.callback_query(F.data.startswith("confirm_emergency_exit"))
+async def confirm_emergency_exit(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    user_id = callback.from_user.id
+
+    await set_user_status(user_id, 4)  # 4 = emergency exit
+
+    await callback.message.edit_text(
+        "🚨 **خروج اضطراری با موفقیت انجام شد.**\n\n"
+        "وضعیت شما به حالت اضطراری تغییر کرد.",
+        reply_markup=None
+    )
+
+    try:
+        await bot.ban_chat_member(
+            chat_id=CHANNEL_ID,
+            user_id=user_id,
+            revoke_messages=True
+        )
+        await callback.answer("✅ کاربر از گروه حذف شد", show_alert=True)
+    except Exception as e:
+        await callback.answer("⚠️ خطا در حذف کاربر از گروه", show_alert=True)
+        print(f"Error kicking user: {e}")
+
+    await state.clear()
+
+
+@user_router.callback_query(F.data.startswith("cancel_emergency_exit"))
+async def cancel_emergency_exit(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "✅ انصراف از خروج اضطراری.\n"
+        "عملیاتی انجام نشد.",
+        reply_markup=None
+    )
+    await state.clear()

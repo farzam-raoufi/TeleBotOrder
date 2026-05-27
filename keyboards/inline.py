@@ -157,3 +157,13 @@ def get_order_keyboard(order_id: int, remaining: int):
         builder.row(*buttons[i:i+3])
 
     return builder.as_markup()
+
+
+def get_emergency_confirmation_keyboard():
+    keyboard = [
+        [
+            InlineKeyboardButton(text="🚨🚨 بله، خروج اضطراری 🚨🚨", callback_data="confirm_emergency_exit"),
+            InlineKeyboardButton(text="❌ انصراف", callback_data="cancel_emergency_exit")
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)

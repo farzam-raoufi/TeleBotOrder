@@ -4,9 +4,9 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 def get_user_main_menu():
     """منوی اصلی کاربران معمولی"""
     keyboard = [
-        [KeyboardButton(text="📋 ثبت درخواست معامله")],
         [KeyboardButton(text="📊 گزارش معاملات امروز")],
-        [KeyboardButton(text="ℹ️ راهنما")]
+        [KeyboardButton(text="ℹ️ راهنما")],
+        [KeyboardButton(text="🚨 خروج اضطراری 🚨")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -14,16 +14,14 @@ def get_user_main_menu():
 def get_order_cancel_menu(last_action: str = None):
 
     keyboard = []
-    
+
     if last_action:
         keyboard.append([KeyboardButton(text=last_action)])
-    
+
     keyboard.append([KeyboardButton(text="❌ نشد")])
     keyboard.append([KeyboardButton(text="🔙 بازگشت به منو")])
-    
+
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
-
-
 
 
 def get_admin_main_menu():
@@ -44,6 +42,7 @@ def get_admin_main_menu():
 def remove_keyboard():
     """حذف کیبورد"""
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
+
 
 def get_settings_menu():
     """منوی تنظیمات ادمین"""
