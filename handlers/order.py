@@ -35,7 +35,8 @@ from states.order import OrderStates
 
 load_dotenv()
 order_router = Router()
-GROUP_ID = int(os.getenv("GROUP_ID"))
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+ADMIN_CHANNEL_ID = int(os.getenv("ADMIN_CHANNEL_ID"))
 tehran_tz = zoneinfo.ZoneInfo("Asia/Tehran")
 
 
@@ -175,7 +176,7 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 
         # ارسال به گروه
         sent_msg = await callback.bot.send_message(
-            chat_id=GROUP_ID,
+            chat_id=CHANNEL_ID,
             text=group_text,
             parse_mode="HTML",
             reply_markup=get_order_keyboard(
@@ -195,6 +196,26 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             "✅لفظ توسط شما تایید شد.",
             reply_markup=get_order_cancel_menu(
                 last_action=last_user_actions[callback.from_user.id])
+        )
+
+        # ==================== ارسال نسخه کامل به کانال ادمین‌ها ====================
+        
+        chat_id_str = str(sent_msg.chat.id)
+        if chat_id_str.startswith('-100'):
+            channel_id = chat_id_str[4:]  # Remove -100
+            public_link = f"https://t.me/c/{channel_id}/{sent_msg.message_id}"
+        else:
+            public_link = "#"
+            
+            
+        user = await get_user(callback.from_user.id)
+        admin_text = f"""🆔 <b>شماره سفارش:</b> <code>{order_id}</code>\n👤 <b>کاربر: {user['name']}</b>\n🔗 <b>یوزرنیم تلگرام:</b> @{callback.from_user.username or 'No username'}\n🆔 <b>شناسه تلگرام کاربر:</b> <code>{callback.from_user.id}</code>\n💰 {group_text}\n📍 <a href="{public_link}">مشاهده پیام در کانال</a>\n⏰ {tehran_jalali.strftime("%Y/%m/%d %H:%M:%S")}"""
+
+        await callback.bot.send_message(
+            chat_id=ADMIN_CHANNEL_ID,
+            text=admin_text,
+            parse_mode="HTML",
+            disable_web_page_preview=True
         )
 
     elif callback.data == "cancel_order":

@@ -141,8 +141,8 @@ def get_today_report_html(trades, username: str, report_date: str, report_dateti
                     <tr>
                         <th>ردیف</th>
                         <th>شماره</th>
-                        <th>لفط دهند</th>
-                        <th>لفط گیرنده</th>
+                        <th>لفظ دهند</th>
+                        <th>لفظ گیرنده</th>
                         <th>نوع</th>
                         <th>حجم</th>
                         <th>حالت</th>

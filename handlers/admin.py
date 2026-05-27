@@ -41,8 +41,7 @@ ADMIN_ID = [
     for user_id in os.getenv("ADMIN_ID", "").split(",")
     if user_id
 ]
-GROUP_ID = int(os.getenv("GROUP_ID"))
-INVITE_LINK = os.getenv("INVITE_LINK")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 
 def is_admin(user_id: int) -> bool:
@@ -169,7 +168,7 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
     # await add_permission(user_id, 0)
     # await add_permission(user_id, 1)
     link = await bot.create_chat_invite_link(
-        chat_id=GROUP_ID,
+        chat_id=CHANNEL_ID,
         creates_join_request=True,
         # member_limit=1,
         expire_date=None
@@ -244,7 +243,7 @@ async def banned_user(callback: CallbackQuery, bot: Bot):
 
     try:
         await bot.kick_chat_member(
-            chat_id=GROUP_ID,      # آیدی گروه شما
+            chat_id=CHANNEL_ID,      # آیدی گروه شما
             user_id=user_tel_id
         )
         await callback.answer("✅ کاربر از گروه حذف شد", show_alert=True)

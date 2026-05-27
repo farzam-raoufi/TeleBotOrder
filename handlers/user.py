@@ -22,7 +22,7 @@ ADMIN_ID = [
     for user_id in os.getenv("ADMIN_ID", "").split(",")
     if user_id
 ]
-GROUP_ID = int(os.getenv("GROUP_ID"))
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 
 class Registration(StatesGroup):
@@ -34,7 +34,7 @@ def is_admin(user_id: int) -> bool:
 
 
 # @user_router.message(Command("getgroupid"))
-# async def get_group_id(message: Message):
+# async def get_CHANNEL_ID(message: Message):
 #     chat_id = message.chat.id
 #     chat_type = message.chat.type
 
@@ -128,7 +128,7 @@ async def process_fullname(message: Message, state: FSMContext):
 # ------------------- Chat Join Request -------------------
 
 
-@user_router.chat_join_request(F.chat.id == GROUP_ID)
+@user_router.chat_join_request(F.chat.id == CHANNEL_ID)
 async def handle_channel_join_request(join_request: ChatJoinRequest, bot: Bot):
     user_id = join_request.from_user.id
 
