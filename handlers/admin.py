@@ -190,7 +190,11 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
         pass  # کاربر بات را بلاک کرده یا شروع نکرده
 
     await callback.answer("✅ کاربر تأیید شد", show_alert=True)
-    await callback.message.edit_text(callback.message.text + "\n\n✅ تأیید شد")
+    await callback.message.edit_text(
+        callback.message.text + "\n\n✅ تأیید شد",
+        parse_mode="HTML",
+        reply_markup=get_start_user_management_keyboard(user_tel_id)
+    )
 
 
 # ======================== رد کاربر ========================
