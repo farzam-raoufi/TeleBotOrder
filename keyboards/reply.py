@@ -44,3 +44,13 @@ def get_admin_main_menu():
 def remove_keyboard():
     """حذف کیبورد"""
     return ReplyKeyboardMarkup(keyboard=[], resize_keyboard=True)
+
+def get_settings_menu():
+    """منوی تنظیمات ادمین"""
+    keyboard = [
+        [KeyboardButton(text="➕ افزودن تعطیلی")],
+        [KeyboardButton(text="📅 تعطیلی‌ها")],
+        [KeyboardButton(text="🕒 ساعت کاری")],
+        [KeyboardButton(text="🔙 بازگشت به منو")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

@@ -51,6 +51,16 @@ def get_start_user_management_keyboard(tel_id: int):
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
+def get_delete_holiday_keyboard(holiday_id: int):
+    keyboard = [
+        [InlineKeyboardButton(
+            text="🗑 حذف تعطیلی",
+            callback_data=f"del_holiday_{holiday_id}"
+        )]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
 def get_user_management_keyboard(tel_id: int):
     # کیبورد مدیریت
     keyboard = [
