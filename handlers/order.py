@@ -165,8 +165,6 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         if parsed['description']:
             group_text += f"{parsed['description']}"
             
-        if parsed['volume'] == 0:
-            group_text += f" 🤝🏻✅"
 
         # ارسال به گروه
         sent_msg = await callback.bot.send_message(
@@ -479,6 +477,10 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
 
     # کیبورد جدید
     new_keyboard = get_order_keyboard(order_id, new_remaining)
+    
+    print(new_remaining)
+    if new_remaining == 0:
+        order['group_text'] += f" 🤝🏻✅"
 
     try:
         if order['description']:

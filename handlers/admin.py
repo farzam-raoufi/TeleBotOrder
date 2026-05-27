@@ -157,14 +157,20 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
     # user_id = user['id']
     # await add_permission(user_id, 0)
     # await add_permission(user_id, 1)
+    link = await bot.create_chat_invite_link(
+        chat_id=GROUP_ID,
+        creates_join_request=True,
+        # member_limit=1,
+        expire_date=None
+    )
 
     # ارسال پیام به کاربر
     try:
         await bot.send_message(
             chat_id=user_tel_id,
             text="✅ **تبریک! حساب شما تأیید شد.**\n\n"
-                 "برای دسترسی کامل به ربات، باید عضو گروه شوید:\n\n"
-                 f"🔗 [عضویت در گروه]({INVITE_LINK})\n\n"
+                 "برای دسترسی کامل به ربات، باید عضو کانال شوید:\n\n"
+                 f"🔗 [عضویت در کانال]({link.invite_link})\n\n"
                  "بعد از عضویت، به‌صورت خودکار دسترسی شما فعال می‌شود.",
             parse_mode="Markdown",
             disable_web_page_preview=True

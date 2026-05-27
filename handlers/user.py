@@ -114,27 +114,28 @@ async def request_membership(callback: CallbackQuery):
 
 
 @user_router.chat_join_request(F.chat.id == GROUP_ID)
-async def handle_join_request(join_request: ChatJoinRequest, bot: Bot):
+async def handle_channel_join_request(join_request: ChatJoinRequest, bot: Bot):
     user_id = join_request.from_user.id
 
+    # Check if user is registered and approved in your database
     user = await get_user(user_id)
 
-    if user and user["status"] == 1:           # فقط کاربران تأیید شده
+    if user and user.get("status") == 1:   # User is allowed
         await bot.approve_chat_join_request(
             chat_id=join_request.chat.id,
             user_id=user_id
         )
-        # پیام خوش‌آمدگویی اختیاری
+
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="✅ شما با موفقیت به گروه اضافه شدید.\n\n"
-                     "حالا می‌توانید از تمام امکانات ربات استفاده کنید."
+                text="✅ شما با موفقیت به کانال اضافه شدید.\n\n"
+                     "حالا می‌توانید سفارش خرید یا فروش ثبت کنید."
             )
         except:
             pass
     else:
-        # رد درخواست اگر تأیید نشده باشد
+        # Reject if not approved
         await bot.decline_chat_join_request(
             chat_id=join_request.chat.id,
             user_id=user_id
