@@ -25,7 +25,8 @@ from database import (
     create_order_acceptance,
     get_expired_orders,
     mark_order_as_expired,
-    get_user_today_volume
+    get_user_today_volume,
+    is_holiday
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from keyboards.reply import get_order_cancel_menu, get_user_main_menu
@@ -80,10 +81,10 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
     confirmation_timestamp = data.get("confirmation_timestamp")
 
     # ==================== چک کردن زمان (60 ثانیه) ====================
-    current_timestamp = int(datetime.datetime.now(
+    timestamp = int(datetime.datetime.now(
         datetime.timezone.utc).timestamp())
 
-    if current_timestamp - confirmation_timestamp > 60:
+    if timestamp - confirmation_timestamp > 60:
         await callback.message.edit_text(
             "⏳به علت گذشت زمان طولانی این لفظ منقضی شده.\n"
             "لطفاً دوباره لفظ را ثبت کنید."
@@ -98,8 +99,7 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
         return
 
     if callback.data == "confirm_order":
-        timestamp = int(datetime.datetime.now(
-            datetime.timezone.utc).timestamp())
+
         tehran_jalali = jdatetime.datetime.fromtimestamp(
             timestamp=timestamp, tz=tehran_tz
         )
@@ -116,9 +116,16 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
             await state.clear()
             return
 
-        weekday = tehran_jalali.weekday()
-        if (weekday in [4, 5, 6] and parsed["trade_date"] == 2):
-            order_date = tehran_jalali + datetime.timedelta(days=7 - (weekday))
+        while True:
+            order_weekday = order_date.weekday()
+            order_date_str = order_date.strftime("%Y%m%d")
+
+            isـorder_date_holiday = await is_holiday(order_date_str)
+
+            if order_weekday not in [5, 6] and not isـorder_date_holiday:
+                break
+
+            order_date += jdatetime.timedelta(days=1)
 
         # ==================== ابطال لفظ‌های قبلی ====================
         canceled_orders = None
@@ -164,7 +171,6 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
 
         if parsed['description']:
             group_text += f"{parsed['description']}"
-            
 
         # ارسال به گروه
         sent_msg = await callback.bot.send_message(
@@ -244,8 +250,19 @@ async def handle_order_message(message: Message, state: FSMContext):
     if not message.text or len(message.text.strip()) < 4:
         return
 
+    today = tehran_jalali.strftime("%Y%m%d")
+
+    # چک کردن تعطیلی
+    is_today_holiday = await is_holiday(today)
+
     weekday = tehran_jalali.weekday()  # 0 sat 1 sun 2 mon 3 tue 4 wed 5 thu 6 fri
-    force_tomorrow = (weekday in [5, 6] or int(tehran_houer) > 14)
+
+    force_tomorrow = (
+        is_today_holiday or
+        weekday in [5, 6] or
+        int(tehran_houer) > 14
+    )
+
     parsed = parse_order_text(
         message.text,
         force_tomorrow
@@ -319,6 +336,7 @@ async def handle_order_message(message: Message, state: FSMContext):
 @order_router.message(F.text.in_({"ن", "❌ نشد"}))
 async def show_pending_users(message: Message):
     user = await get_user(message.from_user.id)
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
     # ==================== ابطال لفظ‌های قبلی ====================
     canceled_orders = await cancel_last_user_order(offerer_id=int(user["id"]))
@@ -326,6 +344,13 @@ async def show_pending_users(message: Message):
     # لوپ برای ویرایش پیام‌های قبلی در گروه
     if canceled_orders:
         for order in canceled_orders:
+            if (order.get("created_at") > timestamp+10):
+                await message.answer(
+                    text="🤖 پس از گذشت 10 ثانیه از دادن لفظ، میتوان میتوان را منقضی کرد.",
+                    parse_mode="HTML",
+                    reply_markup=get_user_main_menu()
+                )
+
             if order.get("group_message_id") and order.get("group_chat_id"):
                 try:
                     if order['description']:
@@ -477,7 +502,7 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
 
     # کیبورد جدید
     new_keyboard = get_order_keyboard(order_id, new_remaining)
-    
+
     if new_remaining == 0:
         order['group_text'] += f" 🤝🏻✅"
 

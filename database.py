@@ -89,6 +89,14 @@ async def init_db():
             );
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                value TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.commit()
         logging.info("✅ data base and tables created")
 
@@ -531,3 +539,42 @@ async def get_for_admin_trades(start_ts: int, end_ts: int):
             rows = await cursor.fetchall()
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
+# ======================== Config Functions ========================
+
+async def add_config(name: str, value: str):
+    """اضافه کردن تنظیم جدید"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO config (name, value) VALUES (?, ?)",
+            (name, value)
+        )
+        await db.commit()
+
+
+async def get_config_by_name(name: str):
+    """دریافت همه رکوردهای یک نام"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT id, value FROM config WHERE name = ? ORDER BY value",
+            (name,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [{"id": row[0], "value": row[1]} for row in rows]
+
+
+async def delete_config_by_id(config_id: int):
+    """حذف رکورد تنظیم"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("DELETE FROM config WHERE id = ?", (config_id,))
+        await db.commit()
+        return True
+    
+async def is_holiday(jalali_date: str) -> bool:
+    """چک کردن اینکه آیا تاریخ داده شده تعطیلی است"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM config WHERE name = 'تعطیلی' AND value = ?",
+            (jalali_date,)
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] > 0
