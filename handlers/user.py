@@ -1,6 +1,8 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, ChatJoinRequest, FSInputFile
 from aiogram.filters import Command
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from dotenv import load_dotenv
 from datetime import datetime
 import os
@@ -21,6 +23,10 @@ ADMIN_ID = [
     if user_id
 ]
 GROUP_ID = int(os.getenv("GROUP_ID"))
+
+
+class Registration(StatesGroup):
+    waiting_for_fullname = State()
 
 
 def is_admin(user_id: int) -> bool:
@@ -81,9 +87,9 @@ async def cmd_start(message: Message):
 
 
 @user_router.callback_query(F.data == "request_membership")
-async def request_membership(callback: CallbackQuery):
-
+async def request_membership(callback: CallbackQuery, state: FSMContext):
     user = await get_user(callback.from_user.id)
+
     if user:
         if await is_banned(callback.from_user.id):
             await callback.answer("⛔ متأسفانه حساب شما مسدود شد.")
@@ -95,21 +101,30 @@ async def request_membership(callback: CallbackQuery):
             await callback.answer("شما قبلاً تأیید شدید!", show_alert=True)
         elif user["status"] == 2:
             await set_user_status(callback.from_user.id, 0)
-            await callback.answer("درخواست شما مجدد ارسال شد..", show_alert=True)
-            await callback.message.edit_text(
-                "✅ درخواست عضویت شما ارسال شد.\n"
-                "ادمین به‌زودی بررسی خواهد کرد."
-            )
+            await callback.answer("درخواست شما مجدد ارسال شد.", show_alert=True)
+            await callback.message.edit_text("✅ درخواست عضویت شما ارسال شد.\nادمین به‌زودی بررسی خواهد کرد.")
         return
-    user = await create_user(callback.from_user.id, callback.from_user.full_name)
-    # Here we could have changed the status to 'pending', but for now we only send a notification
-    await callback.answer("درخواست شما ثبت شد. منتظر تأیید ادمین باشید.", show_alert=True)
 
     await callback.message.edit_text(
-        "✅ درخواست عضویت شما ارسال شد.\n"
-        "ادمین به‌زودی بررسی خواهد کرد."
+        "👤 لطفاً **نام و نام خانوادگی** خود را وارد کنید:",
+        parse_mode="HTML"
     )
+    await state.set_state(Registration.waiting_for_fullname)
+    await callback.answer()
+    
+@user_router.message(Registration.waiting_for_fullname)
+async def process_fullname(message: Message, state: FSMContext):
+    full_name = message.text.strip()
 
+    # ایجاد کاربر با نام دلخواه کاربر
+    user = await create_user(message.from_user.id, full_name)
+    
+    await message.answer(
+        "✅ درخواست عضویت شما ثبت شد.\n"
+        "ادمین به‌زودی بررسی خواهد کرد.",
+        reply_markup=None
+    )
+    await state.clear()
 # ------------------- Chat Join Request -------------------
 
 

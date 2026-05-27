@@ -120,10 +120,12 @@ async def show_all_users(message: Message):
         status_text = status_dict.get(
             user.get('status'), f"نامشخص ({user.get('status')})")
 
-        text = f"""👤 نام: <b>{user['name']}</b>
-        🆔 آیدی: <code>{user['tel_id']}</code>
-        📅 تاریخ ثبت: {user['created_at'][:16]}"""
-        وضعیت: {status_text}
+        user_link = f'<a href="tg://user?id={user["tel_id"]}">{user['name']}</a>'
+
+        text = f"""👤 نام: <b>{user_link}</b>
+        # 🆔 آیدی: <code>{user['tel_id']}</code>
+        📅 تاریخ ثبت: {user['created_at'][:16]}
+        وضعیت: {status_text}"""
 
         if (user['status'] == 0):
             reply_markup = get_admin_approval_keyboard(user['tel_id'])
@@ -427,9 +429,10 @@ async def manage_permissions(callback: CallbackQuery):
     status_text = status_dict.get(
         user.get('status'), f"نامشخص ({user.get('status')})")
 
+    user_link = f'<a href="tg://user?id={user["tel_id"]}">{user['name']}</a>'
     text = f"""🔑 <b>آیدی:مدیریت دسترسی‌های کاربر</b>
 
-        👤 نام: {user['name']}
+        👤 نام: <b>{user_link}</b>
         🆔 آیدی: <code>{user['tel_id']}</code>
         وضعیت: {status_text}
 
@@ -500,9 +503,11 @@ async def refresh_permissions_panel(callback: CallbackQuery, user_tel_id: int):
     status_text = status_dict.get(
         user.get('status'), f"نامشخص ({user.get('status')})")
 
+    user_link = f'<a href="tg://user?id={user["tel_id"]}">{user['name']}</a>'
+
     text = f"""🔑 <b>مدیریت دسترسی‌های کاربر</b>
 
-    👤 نام: {user['name']}
+    👤 نام: <b>{user_link}</b>
     🆔 آیدی: <code>{user['tel_id']}</code>
     وضعیت: {status_text}
 
@@ -519,13 +524,12 @@ async def refresh_permissions_panel(callback: CallbackQuery, user_tel_id: int):
     )
 
 
-
 @admin_router.message(F.text == "📊 گزارش معاملات ده روز گذشته")
 async def send_today_report(message: Message):
     if not is_admin(message.from_user.id):
         await message.answer("شما ادمین نیستید!", show_alert=True)
         return
-    
+
     user = await get_user(message.from_user.id)
 
     try:
