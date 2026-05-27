@@ -541,6 +541,7 @@ async def get_for_admin_trades(start_ts: int, end_ts: int):
             return [dict(zip(columns, row)) for row in rows]
 # ======================== Config Functions ========================
 
+
 async def add_config(name: str, value: str):
     """اضافه کردن تنظیم جدید"""
     async with aiosqlite.connect(DB_NAME) as db:
@@ -568,7 +569,8 @@ async def delete_config_by_id(config_id: int):
         await db.execute("DELETE FROM config WHERE id = ?", (config_id,))
         await db.commit()
         return True
-    
+
+
 async def is_holiday(jalali_date: str) -> bool:
     """چک کردن اینکه آیا تاریخ داده شده تعطیلی است"""
     async with aiosqlite.connect(DB_NAME) as db:
@@ -578,3 +580,27 @@ async def is_holiday(jalali_date: str) -> bool:
         ) as cursor:
             result = await cursor.fetchone()
             return result[0] > 0
+
+
+async def set_working_hours(value: str):
+    """ذخیره یا بروزرسانی ساعت کاری"""
+    async with aiosqlite.connect(DB_NAME) as db:
+        # اول چک کنیم آیا رکورد وجود دارد
+        async with db.execute(
+            "SELECT id FROM config WHERE name = 'ساعت-کاری'"
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        if row:  # رکورد وجود دارد → UPDATE
+            await db.execute(
+                "UPDATE config SET value = ? WHERE name = 'ساعت-کاری'",
+                (value,)
+            )
+        else:    # رکورد وجود ندارد → INSERT
+            await db.execute(
+                "INSERT INTO config (name, value) VALUES ('ساعت-کاری', ?)",
+                (value,)
+            )
+
+        await db.commit()
+        return True

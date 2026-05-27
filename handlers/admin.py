@@ -17,7 +17,8 @@ from database import (
     remove_permission,
     get_config_by_name,
     add_config,
-    delete_config_by_id
+    delete_config_by_id,
+    set_working_hours
 )
 from keyboards.inline import (
     get_admin_approval_keyboard,
@@ -51,6 +52,7 @@ def is_admin(user_id: int) -> bool:
 class AdminStates(StatesGroup):
     waiting_for_capacity = State()
     aiting_for_holiday_date = State()
+    waiting_for_working_hours = State()
 
 
 # ======================== لیست کاربران در انتظار تأیید ========================
@@ -625,6 +627,7 @@ async def list_holidays(message: Message):
             reply_markup=get_delete_holiday_keyboard(holiday['id'])
         )
 
+
 @admin_router.callback_query(F.data.startswith("del_holiday_"))
 async def delete_holiday(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
@@ -632,21 +635,85 @@ async def delete_holiday(callback: CallbackQuery):
 
     try:
         config_id = int(callback.data.split("_")[2])
-        
+
         success = await delete_config_by_id(config_id)
-        
+
         if success:
             await callback.answer("✅ تعطیلی با موفقیت حذف شد", show_alert=True)
             await callback.message.delete()   # حذف پیام حاوی آن تعطیلی
         else:
             await callback.answer("❌ خطا در حذف تعطیلی", show_alert=True)
-            
+
     except Exception as e:
         await callback.answer("❌ خطایی رخ داد", show_alert=True)
         print(f"Delete holiday error: {e}")
 
+# ======================== ساعت کاری ========================
+
+
 @admin_router.message(F.text == "🕒 ساعت کاری")
-async def working_hours(message: Message):
+async def working_hours(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
-    await message.answer("⏳ این بخش هنوز پیاده‌سازی نشده است.")
+
+    # نمایش ساعت کاری فعلی (اگر وجود داشت)
+    current = await get_config_by_name("ساعت-کاری")
+
+    if current:
+        current_time = current[0]['value']
+        text = f"🕒 ساعت کاری فعلی:\n<code>{current_time}</code>\n\n"
+    else:
+        text = "🕒 هنوز ساعت کاری تنظیم نشده است.\n\n"
+
+    text += (
+        "لطفاً ساعت کاری جدید را به فرمت زیر وارد کنید:\n\n"
+        "مثال: \n<code>0930-1500</code>\n"
+        "• ۴ رقم اول: ساعت شروع\n"
+        "• ۴ رقم دوم: ساعت پایان"
+    )
+
+    await message.answer(text, parse_mode="HTML")
+    await state.set_state(AdminStates.waiting_for_working_hours)
+
+
+@admin_router.message(AdminStates.waiting_for_working_hours)
+async def process_working_hours(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    text = message.text.strip()
+
+    # اعتبارسنجی فرمت
+    if '-' not in text or len(text.split('-')) != 2:
+        await message.answer("❌ فرمت اشتباه! باید به شکل `0930-1500` باشد.")
+        return
+
+    start, end = text.split('-')
+
+    if len(start) != 4 or len(end) != 4 or not (start.isdigit() and end.isdigit()):
+        await message.answer("❌ ساعت‌ها باید دقیقاً ۴ رقم باشند (مثال: 0930-1500)")
+        return
+
+    start_hour = int(start[:2])
+    start_min = int(start[2:])
+    end_hour = int(end[:2])
+    end_min = int(end[2:])
+
+    if not (0 <= start_hour <= 23 and 0 <= start_min <= 59 and
+            0 <= end_hour <= 23 and 0 <= end_min <= 59):
+        await message.answer("❌ ساعت یا دقیقه وارد شده معتبر نیست.")
+        return
+
+    if (start_hour > end_hour) or (start_hour == end_hour and start_min >= end_min):
+        await message.answer("❌ ساعت شروع باید قبل از ساعت پایان باشد.")
+        return
+
+    # ذخیره در دیتابیس
+    await set_working_hours(text)
+
+    await message.answer(
+        f"✅ ساعت کاری با موفقیت بروزرسانی شد:\n\n"
+        f"🕒 <code>{text}</code>",
+        parse_mode="HTML"
+    )
+    await state.clear()

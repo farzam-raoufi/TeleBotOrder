@@ -26,7 +26,8 @@ from database import (
     get_expired_orders,
     mark_order_as_expired,
     get_user_today_volume,
-    is_holiday
+    is_holiday,
+    get_config_by_name
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from keyboards.reply import get_order_cancel_menu, get_user_main_menu
@@ -211,7 +212,31 @@ async def handle_order_message(message: Message, state: FSMContext):
 
     tehran_jalali = jdatetime.datetime.fromtimestamp(
         timestamp=timestamp, tz=tehran_tz)
+
     tehran_houer = tehran_jalali.strftime("%H")
+    tehran_houer_minut = tehran_jalali.strftime("%H%M")
+
+    working_hours = await get_config_by_name("ساعت-کاری")
+
+    print(working_hours)
+    if working_hours:
+        working_hours = working_hours[0]['value']
+
+        start, end = working_hours.split('-')
+
+        start_hour = start[:2]
+        start_min = start[2:]
+        end_hour = end[:2]
+        end_min = end[2:]
+
+        if (not (int(start) < int(tehran_houer_minut) and int(tehran_houer_minut) < int(end))):
+            await message.answer(
+                "⛔ ربات در حال حاضر فعال نیست.\n\n"
+                f"ساعت کاری ما از {start_hour}:{start_min} تا {end_hour}:{end_min} است.\n"
+                "لطفاً در این بازه زمانی سفارش خود را ثبت کنید.\n\n"
+                "ممنون از همراهی شما 😊"
+            )
+            return
 
     user = await get_user(message.from_user.id)
     if not user:
