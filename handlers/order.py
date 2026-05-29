@@ -272,10 +272,7 @@ async def handle_order_message(message: Message, state: FSMContext):
 
         if (not (int(start) < int(tehran_houer_minut) and int(tehran_houer_minut) < int(end))):
             await message.answer(
-                "⛔ ربات در حال حاضر فعال نیست.\n\n"
-                f"ساعت کاری ما از {start_hour}:{start_min} تا {end_hour}:{end_min} است.\n"
-                "لطفاً در این بازه زمانی سفارش خود را ثبت کنید.\n\n"
-                "ممنون از همراهی شما 😊"
+                "⚠️ ساعت کاری کانال تمام شده است."
             )
             return
 
