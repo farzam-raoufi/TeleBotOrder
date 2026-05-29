@@ -32,6 +32,13 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
     """
     پارس کردن لفظ کاربر
     """
+    description = None
+    raw_text = text.split(":")
+    if (len(raw_text) >= 2):
+        description = " توضیحات❗:" + ":".join(raw_text[1:])
+        
+    text = raw_text[0]
+
     text = text.strip().replace(" ", "").replace("،", "").replace("ً", "")
     text = fa_to_en_digits(text)
 
@@ -52,47 +59,53 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
     volume = 1
     trade_date = 1  # "امروز"
     payment_type = 1  # "غیر نقدی"
-    description = None
 
-    isNotDescription = True
     for index, char in enumerate(letters):
         if index == 0:
-            if char == "خ":
-                order_type = "خرید"
-            elif char == "ف":
-                order_type = "فروش"
-            else:
-                return None
+            match char:
+                case "خ":
+                    order_type = "خرید"
+                case "ف":
+                    order_type = "فروش"
 
-        if index == 1:
-            if char == "ف":
-                trade_date = 2  # "فردا"
-            else:
-                trade_date = 1  # "امروز"
-            if char == "ن":
-                payment_type = 2  # "نقدی"
-            else:
-                payment_type = 1  # "غیر نقدی"
-
-        if index == 2:
-            if isNotDescription and char.isdigit():
+        if index >= 1:
+            match char:
+                case "ف":
+                    trade_date = 2  # "فردا"
+                case "ن":
+                    payment_type = 2  # "نقدی"
+            if char.isdigit():
                 volume = int(char)
-            elif char == "ن":
-                payment_type = 2  # "نقدی"
-            else:
-                payment_type = 1  # "غیر نقدی"
-
-        if isNotDescription and char.isdigit():
-            volume = int(char)
-
-        if char == ":":
-            isNotDescription = False
-            description = "توضیحات❗:" + text[index + 1:]
             
-            
-        # if len(letters) > (index + 2):
-        #     if letters[index + 1] == ":":
-        #         description = text[index + 2:]
+        # if index == 0:
+        #     if char == "خ":
+        #         order_type = "خرید"
+        #     elif char == "ف":
+        #         order_type = "فروش"
+        #     else:
+        #         return None
+
+        # if index == 1:
+        #     if char == "ف":
+        #         trade_date = 2  # "فردا"
+        #     else:
+        #         trade_date = 1  # "امروز"
+        #     if char == "ن":
+        #         payment_type = 2  # "نقدی"
+        #     else:
+        #         payment_type = 1  # "غیر نقدی"
+
+        # if index == 2:
+        #     if isNotDescription and char.isdigit():
+        #         volume = int(char)
+        #     elif char == "ن":
+        #         payment_type = 2  # "نقدی"
+        #     else:
+        #         payment_type = 1  # "غیر نقدی"
+
+        # if char.isdigit():
+        #     volume = int(char)
+
 
     if (force_tomorrow):
         trade_date = 2
