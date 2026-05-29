@@ -360,7 +360,7 @@ async def handle_order_message(message: Message, state: FSMContext):
         )
         return
 
-    lastOrder = await get_last_order() or {"price": 50000000}
+    lastOrder = await get_last_order() or {"price": 50000000, "expires_at":0}
     if (len(parsed['price']) == 3):
         parsed['price'] = int(str(lastOrder["price"])[
             :-6] + (parsed['price']+"000"))
