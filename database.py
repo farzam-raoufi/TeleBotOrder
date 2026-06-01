@@ -51,6 +51,7 @@ async def init_db():
                 total_volume INTEGER NOT NULL,                  -- حجم به کیلو
                 remaining_volume INTEGER NOT NULL,                           -- حجم به کیلو
                 payment_type TEXT NOT NULL,                  --  1 نقدی 2 - غیر نقدی
+                date_type TEXT NOT NULL,                    -- 2 روز 1 - اولین روز کاری بعد
                 
                 -- توضیحات اضافی (اختیاری)
                 description TEXT,                            -- متن بعد از ":"
@@ -260,13 +261,14 @@ async def remove_permission(user_id: int, permission: int):
 
 # ======================== Orders ========================
 
-async def create_order(
+async def create_order( 
     offerer_id: int,
     offerer_tel_id: int,
     price: int,
     order_type: str,
     total_volume: float,
     payment_type: str,
+    date_type: str,
     trade_date: str,
     created_at: str,
     status: str,
@@ -287,6 +289,7 @@ async def create_order(
                 total_volume,
                 remaining_volume,
                 payment_type,
+                date_type,
                 trade_date,
                 description,
                 expires_at,
@@ -295,7 +298,7 @@ async def create_order(
                 group_text,
                 created_at,
                 status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             offerer_id,
             offerer_tel_id,
@@ -304,6 +307,7 @@ async def create_order(
             total_volume,
             total_volume,  # remaining_volume
             payment_type,
+            date_type,
             trade_date,
             description,
             expires_at,
@@ -371,6 +375,22 @@ async def get_last_order():
             ORDER BY created_at DESC 
             LIMIT 1
         """) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(zip([c[0] for c in cursor.description], row))
+            return None
+        
+async def get_last_order_by(
+    order_type, payment_type, date_type
+): 
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT *
+            FROM orders
+            WHERE order_type = ? AND payment_type = ? AND date_type = ?
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (order_type, payment_type, date_type)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return dict(zip([c[0] for c in cursor.description], row))
