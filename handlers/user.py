@@ -8,7 +8,7 @@ from datetime import datetime
 import os
 
 from database import get_user, create_user, set_user_status, is_banned
-from keyboards.inline import get_start_keyboard, get_admin_main_menu, get_emergency_confirmation_keyboard
+from keyboards.inline import get_start_keyboard, get_emergency_confirmation_keyboard
 from keyboards.reply import get_user_main_menu, get_admin_main_menu
 from utils.report_generator import generate_today_report
 
@@ -146,7 +146,8 @@ async def handle_channel_join_request(join_request: ChatJoinRequest, bot: Bot):
             await bot.send_message(
                 chat_id=user_id,
                 text="✅ شما با موفقیت به کانال اضافه شدید.\n\n"
-                     "حالا می‌توانید سفارش خرید یا فروش ثبت کنید."
+                     "حالا می‌توانید سفارش خرید یا فروش ثبت کنید.",
+                reply_markup=get_user_main_menu()
             )
         except:
             pass

@@ -28,7 +28,7 @@ from keyboards.inline import (
     get_permissions_management_keyboard,
     get_delete_holiday_keyboard
 )
-from keyboards.reply import get_settings_menu
+from keyboards.reply import get_settings_menu, get_user_main_menu
 from utils.admin_report_generator import generate_today_report
 from utils.parser import fa_to_en_digits
 
@@ -186,7 +186,8 @@ async def approve_user(callback: CallbackQuery, bot: Bot):
                  f"🔗 [عضویت در کانال]({link.invite_link})\n\n"
                  "بعد از عضویت، به‌صورت خودکار دسترسی شما فعال می‌شود.",
             parse_mode="Markdown",
-            disable_web_page_preview=True
+            disable_web_page_preview=True,
+            reply_markup=get_user_main_menu()
         )
     except:
         pass  # کاربر بات را بلاک کرده یا شروع نکرده
