@@ -373,14 +373,24 @@ async def handle_order_message(message: Message, state: FSMContext):
     if (len(parsed['price']) == 6):
         
         lastPrince = int(sameTypeLastOrder["price"])
-        chengedLastPrice = list(str(lastPrince))
-        if(int(str(lastPrince)[2:]) > 500000):
+        chengedLastPrice = str(lastPrince) #"79850000"
 
+        
+        prefix = int(chengedLastPrice[:-6])   # 79
+        digit = int(chengedLastPrice[-6])     # 8
+        suffix = chengedLastPrice[-6:]        # 850000
+        if digit > 5:
+            prefix += 1
+        elif digit < 5:
+            prefix -= 1
 
-            chengedLastPrice[1] = str(int(str(lastPrince)[2]) + 1)
-        else:
-            chengedLastPrice[1] = str(int(str(lastPrince)[2]) - 1)
-        chengedLastPrice = "".join(chengedLastPrice)
+        chengedLastPrice = str(prefix) + suffix
+        # if(int(str(lastPrince)[2:]) > 500000):
+
+        #     chengedLastPrice[1] = str(int(str(lastPrince)[2]) + 1)
+        # else:
+        #     chengedLastPrice[1] = str(int(str(lastPrince)[2]) - 1)
+        # chengedLastPrice = "".join(chengedLastPrice)
         
         onLastPriceDifferent = abs( lastPrince - int(str(lastPrince)[:-6] + (parsed['price'])))
         
@@ -399,7 +409,7 @@ async def handle_order_message(message: Message, state: FSMContext):
                 
             if(abs(int(parsed['price']) - int(differentTypeLastOrder["price"])) > price_limit[parsed['payment_type']]):
                 await message.answer(
-                    f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ مشابه نباید بیشتر یا کمتر از {price_limit[parsed['payment_type']]/1000} .خط باشد\n"+
+                    f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ مشابه نباید بیشتر یا کمتر از {int(price_limit[parsed['payment_type']]/1000)} خط باشد.\n"+
                     f"بازه قیمت:\n"+
                     f"{format(int(differentTypeLastOrder["price"]+price_limit[parsed['payment_type']]), ",")} الی {format(int(differentTypeLastOrder["price"]-price_limit[parsed['payment_type']]), ",")}\n"
                 )
