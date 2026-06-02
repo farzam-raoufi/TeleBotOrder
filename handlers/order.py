@@ -53,6 +53,7 @@ def is_admin(user_id: int) -> bool:
 
 
 accept_order_click = {}
+lastUserOrder = {}
 last_user_actions = {}
 
 
@@ -105,6 +106,14 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     parsed = data.get("parsed_order")
     confirmation_timestamp = data.get("confirmation_timestamp")
+    uniCode = data.get("uniCode")
+
+    if(lastUserOrder.get(callback.from_user.id) == uniCode):
+        return
+
+    lastUserOrder[callback.from_user.id] = uniCode
+
+
 
     # ==================== چک کردن زمان (60 ثانیه) ====================
     timestamp = int(datetime.datetime.now(
@@ -433,11 +442,13 @@ async def handle_order_message(message: Message, state: FSMContext):
     order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
     if parsed['description']:
         order_text += f"{parsed['description']}"
-
+    
+    uniCode = str(datetime.datetime.now(datetime.timezone.utc).timestamp())[4:]
     # ذخیره اطلاعات در FSM
     await state.update_data(
         parsed_order=parsed,
         user_id=user["id"],
+        uniCode=uniCode,
         confirmation_timestamp=int(datetime.datetime.now(
             datetime.timezone.utc).timestamp()),
     )

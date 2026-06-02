@@ -500,7 +500,9 @@ async def get_user_today_trades(user_id: int, start_ts: int, end_ts: int):
             SELECT 
                 oa.id,
                 oa.order_id,
-                o.order_type,           -- خرید یا فروش
+                o.order_type,           -- خرید یا فروش 
+                o.payment_type,
+                o.date_type,
                 o.group_text,
                 o.price,
                 oa.accepted_volume,
@@ -532,6 +534,8 @@ async def get_for_admin_trades(start_ts: int, end_ts: int):
                 oa.id AS acceptance_id,
                 oa.order_id,
                 o.order_type,           -- خرید یا فروش
+                o.payment_type,
+                o.date_type,
                 o.group_text,
                 o.price,
                 oa.accepted_volume,
