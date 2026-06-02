@@ -26,6 +26,15 @@ def format_price(value):
     except:
         return str(value)
 
+# date-type
+def data_to_order(date: int, type: int):
+    orders = {
+        "1-1": "امروزی",
+        "1-2": "نقدی حاضر",
+        "2-1": "با حواله",
+        "2-2": "بی حواله فردا",
+    }
+    return orders.get(f"{date}-{type}")
 
 def get_today_report_html(trades, username: str, report_date: str, report_datetime: str):
     font_path = os.path.abspath("fonts/Vazirmatn.ttf")
@@ -206,7 +215,7 @@ async def generate_today_report(user_id: int, username: str = None):
     for trade in raw_trades:
         trade_copy = dict(trade)
         trade_copy['formatted_price'] = format_price(trade.get('price', 0))
-        trade_copy['payAndDate'] = f"{trade.get('group_text','')[17:-7]}"
+        trade_copy['payAndDate'] = data_to_order(trade.get('date_type'),trade.get('payment_type'))
         trade_copy['trade_time'] = jdatetime.datetime.fromtimestamp(timestamp=trade.get(
             'accepted_at', ''), tz=tehran_tz).strftime("%H:%M:%S %Y/%m/%d ")
         trades.append(trade_copy)

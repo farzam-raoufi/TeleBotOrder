@@ -27,6 +27,16 @@ def format_price(value):
         return str(value)
 
 
+# date-type
+def data_to_order(date: int, type: int):
+    orders = {
+        "1-1": "امروزی",
+        "1-2": "نقدی حاضر",
+        "2-1": "با حواله",
+        "2-2": "بی حواله فردا",
+    }
+    return orders.get(f"{date}-{type}")
+
 def get_today_report_html(trades, username: str, report_date: str, report_datetime: str):
     font_path = os.path.abspath("fonts/Vazirmatn.ttf")
 
@@ -209,7 +219,7 @@ async def generate_today_report(user_id: int, username: str = None):
     for trade in raw_trades:
         trade_copy = dict(trade)
         trade_copy['formatted_price'] = format_price(trade.get('price', 0))
-        trade_copy['payAndDate'] = f"{trade.get('group_text','')[17:-7]}"
+        trade_copy['payAndDate'] = data_to_order(trade.get('date_type'),trade.get('payment_type'))
         trade_copy['trade_time'] = jdatetime.datetime.fromtimestamp(timestamp=trade.get(
             'accepted_at', ''), tz=tehran_tz).strftime("%H:%M:%S %Y/%m/%d ")
         trades.append(trade_copy)
@@ -222,16 +232,3 @@ async def generate_today_report(user_id: int, username: str = None):
 
     HTML(string=html_content).write_pdf(pdf_path)
     return pdf_path
-
-
-
-
-
-# [
-#     {'acceptance_id': 6, 'order_id': 14, 'order_type': 'فروش', 'order_text': '56,900,000 🔴 فروش بی حواله فردا 💵 3 تا', 'price': 56900000, 'accepted_volume': 3, 'accepted_at': 1779568693, 'description': None, 'offerer_id': 1, 'acceptor_id': 2, 'offerer_name': 'Fffff', 'acceptor_name': 'Farzam'},
-#     {'acceptance_id': 5, 'order_id': 13, 'order_type': 'خرید', 'order_text': '56,700,000 🔵 خرید بی حواله فردا 💵 3 تا', 'price': 56700000, 'accepted_volume': 2, 'accepted_at': 1779568612, 'description': None, 'offerer_id': 1, 'acceptor_id': 2, 'offerer_name': 'Fffff', 'acceptor_name': 'Farzam'},
-#     {'acceptance_id': 4, 'order_id': 12, 'order_type': 'خرید', 'order_text': '56,800,000 🔵 خرید با حواله 💵 2 تا', 'price': 56800000, 'accepted_volume': 1, 'accepted_at': 1779557680, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
-#     {'acceptance_id': 3, 'order_id': 11, 'order_type': 'خرید', 'order_text': '56,400,000 🔵 خرید با حواله 💵 3 تا', 'price': 56400000, 'accepted_volume': 2, 'accepted_at': 1779557529, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
-#     {'acceptance_id': 2, 'order_id': 3, 'order_type': 'خرید', 'order_text': '56,400,000 🔵 خرید با حواله 💵 3 تا', 'price': 56400000, 'accepted_volume': 1, 'accepted_at': 1779452712, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'},
-#     {'acceptance_id': 1, 'order_id': 2, 'order_type': 'خرید', 'order_text': '56,800,000 🔵 خرید نقدی حاضر 💵 3 تا', 'price': 56800000, 'accepted_volume': 2, 'accepted_at': 1779452482, 'description': None, 'offerer_id': 2, 'acceptor_id': 1, 'offerer_name': 'Farzam', 'acceptor_name': 'Fffff'}
-# ]
