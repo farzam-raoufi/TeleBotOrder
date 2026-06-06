@@ -1,5 +1,6 @@
 import aiosqlite
 import logging
+
 from utils.today_iran_timestamps import get_today_iran_timestamps
 
 DB_NAME = "TeleBotOrder.db"
@@ -7,7 +8,6 @@ DB_NAME = "TeleBotOrder.db"
 
 async def init_db():
     async with aiosqlite.connect(DB_NAME) as db:
-
         # Users table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -100,6 +100,7 @@ async def init_db():
         """)
         await db.commit()
         logging.info("✅ data base and tables created")
+
 
 # Helper function to get or register user
 
@@ -207,7 +208,7 @@ async def is_banned(tel_id: int) -> dict | None:
     if not user:
         return False
 
-    if user["status"] in [3, 4]:   # بلاک شده
+    if user["status"] in [3, 4]:  # بلاک شده
         return True
     return False
 
@@ -232,8 +233,8 @@ async def user_has_permission(user_id: int, permission: int) -> bool:
     """چک کند کاربر این دسترسی را دارد یا نه"""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
-            "SELECT 1 FROM roles WHERE user_id = ? AND permission = ?",
-            (user_id, permission)
+                "SELECT 1 FROM roles WHERE user_id = ? AND permission = ?",
+                (user_id, permission)
         ) as cursor:
             return await cursor.fetchone() is not None
 
@@ -261,21 +262,21 @@ async def remove_permission(user_id: int, permission: int):
 
 # ======================== Orders ========================
 
-async def create_order( 
-    offerer_id: int,
-    offerer_tel_id: int,
-    price: int,
-    order_type: str,
-    total_volume: float,
-    payment_type: str,
-    date_type: str,
-    trade_date: str,
-    created_at: str,
-    status: str,
-    description: str = None,
-    group_text: str = None,
-    group_chat_id: int = None,
-    group_message_id: int = None
+async def create_order(
+        offerer_id: int,
+        offerer_tel_id: int,
+        price: int,
+        order_type: str,
+        total_volume: float,
+        payment_type: str,
+        date_type: str,
+        trade_date: str,
+        created_at: str,
+        status: str,
+        description: str = None,
+        group_text: str = None,
+        group_chat_id: int = None,
+        group_message_id: int = None
 ) -> int:
     async with aiosqlite.connect(DB_NAME) as db:
         expires_at = created_at + 60
@@ -379,10 +380,11 @@ async def get_last_order():
             if row:
                 return dict(zip([c[0] for c in cursor.description], row))
             return None
-        
+
+
 async def get_last_order_by(
-    order_type, payment_type, date_type
-): 
+        order_type, payment_type, date_type
+):
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("""
             SELECT *
@@ -397,6 +399,23 @@ async def get_last_order_by(
             return None
 
 
+async def get_same_order_type(
+        payment_type, date_type
+):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT *
+            FROM orders
+            WHERE payment_type = ? AND date_type = ?
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (payment_type, date_type)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(zip([c[0] for c in cursor.description], row))
+            return None
+
+
 async def cancel_order(order_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
@@ -405,7 +424,8 @@ async def cancel_order(order_id: int):
 
 async def update_order_group_info(order_id: int, group_message_id: int, group_chat_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("UPDATE orders SET group_message_id = ?, group_chat_id = ? WHERE id = ?", (group_message_id, group_chat_id, order_id))
+        await db.execute("UPDATE orders SET group_message_id = ?, group_chat_id = ? WHERE id = ?",
+                         (group_message_id, group_chat_id, order_id))
         await db.commit()
 
 
@@ -418,7 +438,6 @@ async def get_expired_orders(timestamp):
               AND expires_at IS NOT NULL 
               AND expires_at < ? 
         """, (timestamp,)) as cursor:
-
             rows = await cursor.fetchall()
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
@@ -437,13 +456,13 @@ async def mark_order_as_expired(order_id: int):
 
 
 async def create_order_acceptance(
-    order_id: int,
-    offerer_id: int,
-    offerer_tel_id: int,
-    acceptor_id: int,
-    acceptor_tel_id: int,
-    volume: int,
-    accepted_at: int
+        order_id: int,
+        offerer_id: int,
+        offerer_tel_id: int,
+        acceptor_id: int,
+        acceptor_tel_id: int,
+        volume: int,
+        accepted_at: int
 ):
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute("BEGIN"):
@@ -470,11 +489,11 @@ async def create_order_acceptance(
 
             return acceptance_id
 
+
 # ======================== user traded volume ========================
 
 
 async def get_user_today_volume(user_id: int):
-
     toda = get_today_iran_timestamps()
 
     async with aiosqlite.connect(DB_NAME) as db:
@@ -484,7 +503,6 @@ async def get_user_today_volume(user_id: int):
             WHERE accepted_at BETWEEN ? AND ?
             AND (offerer_id = ? OR acceptor_id = ?)
         """, (toda[0], toda[1], user_id, user_id)) as cursor:
-
             result = await cursor.fetchone()
             return result[0] if result else 0
 
@@ -516,10 +534,10 @@ async def get_user_today_trades(user_id: int, start_ts: int, end_ts: int):
               AND (oa.offerer_id = ? OR oa.acceptor_id = ?)
             ORDER BY oa.accepted_at DESC
         """, (start_ts, end_ts, user_id, user_id)) as cursor:
-
             rows = await cursor.fetchall()
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
+
 
 # ======================== admin traded report ========================
 
@@ -559,10 +577,11 @@ async def get_for_admin_trades(start_ts: int, end_ts: int):
             WHERE oa.accepted_at BETWEEN ? AND ?
             ORDER BY oa.accepted_at DESC
             """, (start_ts, end_ts)) as cursor:
-
             rows = await cursor.fetchall()
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
+
+
 # ======================== Config Functions ========================
 
 
@@ -580,8 +599,8 @@ async def get_config_by_name(name: str):
     """دریافت همه رکوردهای یک نام"""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
-            "SELECT id, value FROM config WHERE name = ? ORDER BY value",
-            (name,)
+                "SELECT id, value FROM config WHERE name = ? ORDER BY value",
+                (name,)
         ) as cursor:
             rows = await cursor.fetchall()
             return [{"id": row[0], "value": row[1]} for row in rows]
@@ -599,8 +618,8 @@ async def is_holiday(jalali_date: str) -> bool:
     """چک کردن اینکه آیا تاریخ داده شده تعطیلی است"""
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM config WHERE name = 'تعطیلی' AND value = ?",
-            (jalali_date,)
+                "SELECT COUNT(*) FROM config WHERE name = 'تعطیلی' AND value = ?",
+                (jalali_date,)
         ) as cursor:
             result = await cursor.fetchone()
             return result[0] > 0
@@ -611,7 +630,7 @@ async def set_working_hours(value: str):
     async with aiosqlite.connect(DB_NAME) as db:
         # اول چک کنیم آیا رکورد وجود دارد
         async with db.execute(
-            "SELECT id FROM config WHERE name = 'ساعت-کاری'"
+                "SELECT id FROM config WHERE name = 'ساعت-کاری'"
         ) as cursor:
             row = await cursor.fetchone()
 
@@ -620,7 +639,7 @@ async def set_working_hours(value: str):
                 "UPDATE config SET value = ? WHERE name = 'ساعت-کاری'",
                 (value,)
             )
-        else:    # رکورد وجود ندارد → INSERT
+        else:  # رکورد وجود ندارد → INSERT
             await db.execute(
                 "INSERT INTO config (name, value) VALUES ('ساعت-کاری', ?)",
                 (value,)

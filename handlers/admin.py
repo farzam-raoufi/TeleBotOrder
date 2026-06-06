@@ -1,10 +1,10 @@
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, FSInputFile
-from aiogram.filters import Command
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from dotenv import load_dotenv
 import os
+from aiogram import Router, F, Bot
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import Message, CallbackQuery, FSInputFile
+from dotenv import load_dotenv
 
 from database import (
     get_users_by_status,
@@ -31,7 +31,6 @@ from keyboards.inline import (
 from keyboards.reply import get_settings_menu, get_user_main_menu
 from utils.admin_report_generator import generate_today_report
 from utils.parser import fa_to_en_digits
-
 
 admin_router = Router()
 load_dotenv()
@@ -148,6 +147,7 @@ async def show_all_users(message: Message):
 
     await message.answer(f"{len(users)} {title}.")
 
+
 # ======================== تایید کاربر ========================
 
 
@@ -217,7 +217,7 @@ async def reject_user(callback: CallbackQuery, bot: Bot):
             chat_id=user_tel_id,
             text="❌ متأسفانه درخواست ثبت‌نام شما توسط ادمین رد شد.\n\n"
                  "در صورت تمایل می‌توانید دوباره درخواست دهید:",
-            reply_markup=get_start_keyboard()   # ← دکمه درخواست اضافه شد
+            reply_markup=get_start_keyboard()  # ← دکمه درخواست اضافه شد
         )
     except:
         pass
@@ -647,13 +647,14 @@ async def delete_holiday(callback: CallbackQuery):
 
         if success:
             await callback.answer("✅ تعطیلی با موفقیت حذف شد", show_alert=True)
-            await callback.message.delete()   # حذف پیام حاوی آن تعطیلی
+            await callback.message.delete()  # حذف پیام حاوی آن تعطیلی
         else:
             await callback.answer("❌ خطا در حذف تعطیلی", show_alert=True)
 
     except Exception as e:
         await callback.answer("❌ خطایی رخ داد", show_alert=True)
         print(f"Delete holiday error: {e}")
+
 
 # ======================== ساعت کاری ========================
 
