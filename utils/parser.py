@@ -2,6 +2,7 @@
 import re
 from typing import Dict, Optional, Tuple
 
+
 # تبدیل اعداد فارسی به انگلیسی
 
 
@@ -36,7 +37,7 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
     raw_text = text.split(":")
     if (len(raw_text) >= 2):
         description = " توضیحات❗:" + ":".join(raw_text[1:])
-        
+
     text = raw_text[0]
 
     text = text.strip().replace(" ", "").replace("،", "").replace("ً", "")
@@ -76,7 +77,7 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
                     payment_type = 2  # "نقدی"
             if char.isdigit():
                 volume = int(char)
-            
+
         # if index == 0:
         #     if char == "خ":
         #         order_type = "خرید"
@@ -105,7 +106,6 @@ def parse_order_text(text: str, force_tomorrow: bool) -> Optional[Dict]:
 
         # if char.isdigit():
         #     volume = int(char)
-
 
     if (force_tomorrow):
         trade_date = 2

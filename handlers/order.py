@@ -28,7 +28,8 @@ from database import (
     get_user_today_volume,
     is_holiday,
     get_config_by_name,
-    get_last_order_by
+    get_last_order_by,
+    get_same_order_type
 )
 from keyboards.inline import get_confirmation_keyboard, get_order_keyboard
 from keyboards.reply import get_order_cancel_menu, get_user_main_menu
@@ -372,7 +373,9 @@ async def handle_order_message(message: Message, state: FSMContext):
         "خرید" if parsed['order_type'] == "فروش" else "فروش",parsed['payment_type'],parsed['trade_date']
     )
     sameTypeLastOrder = await get_last_order_by(parsed['order_type'],parsed['payment_type'],parsed['trade_date']) or {"price": 50000000, "expires_at":0}
-    
+
+    same_order_type = await get_same_order_type(parsed['payment_type'],parsed['trade_date']) or {"price": 50000000, "expires_at":0}
+
     # payment_type: یک غیر نقد - دو نقد
     price_limit = {
         2:1000000,
@@ -381,7 +384,7 @@ async def handle_order_message(message: Message, state: FSMContext):
     
     if (len(parsed['price']) == 6):
         
-        lastPrince = int(sameTypeLastOrder["price"])
+        lastPrince = int(same_order_type["price"])
         chengedLastPrice = str(lastPrince) #"79850000"
 
         

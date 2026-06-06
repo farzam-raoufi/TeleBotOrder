@@ -1,10 +1,11 @@
-import os
-import logging
 import datetime
-import zoneinfo
 import jdatetime
+import logging
+import os
+import zoneinfo
 from jinja2 import Template
 from weasyprint import HTML
+
 from database import get_for_admin_trades
 from utils.today_iran_timestamps import get_today_iran_timestamps
 
@@ -36,6 +37,7 @@ def data_to_order(date: int, type: int):
         "2-2": "بی حواله فردا",
     }
     return orders.get(f"{date}-{type}")
+
 
 def get_today_report_html(trades, username: str, report_date: str, report_datetime: str):
     font_path = os.path.abspath("fonts/Vazirmatn.ttf")
@@ -199,7 +201,7 @@ def get_today_report_html(trades, username: str, report_date: str, report_dateti
         username=username,
         report_date=report_date,
         report_datetime=report_datetime,
-        font_path=font_path.replace("\\", "/")   # برای ویندوز/لینوکس
+        font_path=font_path.replace("\\", "/")  # برای ویندوز/لینوکس
     )
 
 
@@ -219,7 +221,7 @@ async def generate_today_report(user_id: int, username: str = None):
     for trade in raw_trades:
         trade_copy = dict(trade)
         trade_copy['formatted_price'] = format_price(trade.get('price', 0))
-        trade_copy['payAndDate'] = data_to_order(trade.get('date_type'),trade.get('payment_type'))
+        trade_copy['payAndDate'] = data_to_order(trade.get('date_type'), trade.get('payment_type'))
         trade_copy['trade_time'] = jdatetime.datetime.fromtimestamp(timestamp=trade.get(
             'accepted_at', ''), tz=tehran_tz).strftime("%H:%M:%S %Y/%m/%d ")
         trades.append(trade_copy)

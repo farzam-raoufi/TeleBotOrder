@@ -1,17 +1,16 @@
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, ChatJoinRequest, FSInputFile
-from aiogram.filters import Command
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from dotenv import load_dotenv
-from datetime import datetime
 import os
+from aiogram import Router, F, Bot
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import Message, CallbackQuery, ChatJoinRequest, FSInputFile
+from datetime import datetime
+from dotenv import load_dotenv
 
 from database import get_user, create_user, set_user_status, is_banned
 from keyboards.inline import get_start_keyboard, get_emergency_confirmation_keyboard
 from keyboards.reply import get_user_main_menu, get_admin_main_menu
 from utils.report_generator import generate_today_report
-
 
 user_router = Router()
 
@@ -95,7 +94,7 @@ async def request_membership(callback: CallbackQuery, state: FSMContext):
             await callback.answer("⛔ متأسفانه حساب شما مسدود شد.")
             return
 
-        if user["status"] == 0:   # pending
+        if user["status"] == 0:  # pending
             await callback.answer("درخواست شما قبلاً ثبت شده و در حال بررسی است.", show_alert=True)
         elif user["status"] == 1:
             await callback.answer("شما قبلاً تأیید شدید!", show_alert=True)
@@ -126,6 +125,8 @@ async def process_fullname(message: Message, state: FSMContext):
         reply_markup=None
     )
     await state.clear()
+
+
 # ------------------- Chat Join Request -------------------
 
 
@@ -136,7 +137,7 @@ async def handle_channel_join_request(join_request: ChatJoinRequest, bot: Bot):
     # Check if user is registered and approved in your database
     user = await get_user(user_id)
 
-    if user and user.get("status") == 1:   # User is allowed
+    if user and user.get("status") == 1:  # User is allowed
         await bot.approve_chat_join_request(
             chat_id=join_request.chat.id,
             user_id=user_id
@@ -188,7 +189,6 @@ async def send_today_report(message: Message):
 
 @user_router.message(F.text == "🔙 بازگشت به منو")
 async def back_to_main_menu(message: Message):
-
     if is_admin(message.from_user.id):
         await message.answer(
             "🔙 به منوی اصلی بازگشتید.",
@@ -196,6 +196,7 @@ async def back_to_main_menu(message: Message):
         )
     else:
         await message.answer("🔙 به منوی اصلی بازگشتید.", reply_markup=get_user_main_menu())
+
 
 # ==================== خروج اضطراری - مرحله اول ====================
 
@@ -209,6 +210,7 @@ async def emergency_exit_request(message: Message, state: FSMContext):
         reply_markup=get_emergency_confirmation_keyboard()
     )
     await state.set_state("waiting_for_emergency_confirmation")
+
 
 # ==================== پردازش تأیید یا انصراف ====================
 
@@ -247,7 +249,6 @@ async def cancel_emergency_exit(callback: CallbackQuery, state: FSMContext):
         reply_markup=None
     )
     await state.clear()
-
 
 
 # ==================== راهنما ====================

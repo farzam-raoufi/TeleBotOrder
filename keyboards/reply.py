@@ -12,7 +12,6 @@ def get_user_main_menu():
 
 
 def get_order_cancel_menu(last_action: str = None):
-
     keyboard = []
 
     if last_action:

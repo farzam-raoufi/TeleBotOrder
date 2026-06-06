@@ -75,7 +75,6 @@ def get_user_management_keyboard(tel_id: int):
 
 
 def get_permissions_management_keyboard(tel_id: int, has_set_order: bool, has_accept_order: bool, user_status: int = 1):
-
     user_status_button = []
     # active user 0=pending, 1=approved, 2=rejected, 3=banned, 4 emergency exit
     match user_status:
@@ -154,7 +153,7 @@ def get_order_keyboard(order_id: int, remaining: int):
 
     # تنظیم ۳ تایی
     for i in range(0, len(buttons), 3):
-        builder.row(*buttons[i:i+3])
+        builder.row(*buttons[i:i + 3])
 
     return builder.as_markup()
 
