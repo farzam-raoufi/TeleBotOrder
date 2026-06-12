@@ -188,7 +188,7 @@ async def process_confirmation(callback: CallbackQuery, state: FSMContext):
                         logging.error(f"خطا در ویرایش پیام گروه: {e}")
 
         # ساخت متن برای گروه
-        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
+        group_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} {parsed['volume']} تا"""
 
         # ==================== ثبت سفارش جدید ====================
         order_id = await create_order(
@@ -369,9 +369,9 @@ async def handle_order_message(message: Message, state: FSMContext):
         )
         return
 
-    differentTypeLastOrder = await get_last_order_by(
-        "خرید" if parsed['order_type'] == "فروش" else "فروش",parsed['payment_type'],parsed['trade_date']
-    )
+    # differentTypeLastOrder = await get_last_order_by(
+    #     "خرید" if parsed['order_type'] == "فروش" else "فروش",parsed['payment_type'],parsed['trade_date']
+    # )
     sameTypeLastOrder = await get_last_order_by(parsed['order_type'],parsed['payment_type'],parsed['trade_date']) or {"price": 50000000, "expires_at":0}
 
     same_order_type = await get_same_order_type(parsed['payment_type'],parsed['trade_date']) or {"price": 50000000, "expires_at":0}
@@ -417,13 +417,13 @@ async def handle_order_message(message: Message, state: FSMContext):
     #     parsed['price'] = int(parsed['price'])*1000
     if (not is_admin(message.from_user.id)):
 
-        if(differentTypeLastOrder):
+        if(same_order_type):
                 
-            if(abs(int(parsed['price']) - int(differentTypeLastOrder["price"])) > price_limit[parsed['payment_type']]):
+            if(abs(int(parsed['price']) - int(same_order_type["price"])) > price_limit[parsed['payment_type']]):
                 await message.answer(
                     f"⚠️ تفاوت قیمت لفظ شما با آخرین لفظ مشابه نباید بیشتر یا کمتر از {int(price_limit[parsed['payment_type']]/1000)} خط باشد.\n"+
                     f"بازه قیمت:\n"+
-                    f"{format(int(differentTypeLastOrder["price"]+price_limit[parsed['payment_type']]), ",")} الی {format(int(differentTypeLastOrder["price"]-price_limit[parsed['payment_type']]), ",")}\n"
+                    f"{format(int(same_order_type["price"]+price_limit[parsed['payment_type']]), ",")} الی {format(int(same_order_type["price"]-price_limit[parsed['payment_type']]), ",")}\n"
                 )
                 return
 
@@ -442,7 +442,7 @@ async def handle_order_message(message: Message, state: FSMContext):
                 )
                 return
 
-    order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} 💵 {parsed['volume']} تا"""
+    order_text = f"""{format(int(parsed['price']), ",")} {"🔴" if parsed['order_type'] == "فروش" else "🔵"} {parsed['order_type']} {parsed["order"]} {parsed['volume']} تا"""
     if parsed['description']:
         order_text += f"{parsed['description']}"
     
@@ -638,8 +638,7 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
     # کیبورد جدید
     new_keyboard = get_order_keyboard(order_id, new_remaining)
 
-    if new_remaining == 0:
-        order['group_text'] += f" 🤝🏻✅"
+    order['group_text'] += f" 🤝🏻✅"
 
     try:
         if order['description']:
@@ -653,23 +652,30 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
     except Exception as e:
         logging.error(f"ویرایش پیام گروه شکست: {e}")
 
+    orders_emoji = {
+        "1-1": "☀️",
+        "1-2": "",
+        "2-1": "⏳",
+        "2-2": "💵",
+    }
+    emoji = orders_emoji.get(f'{order['date_type']}-{order['payment_type']}')
     group_text = data_to_order(order['date_type'], order['payment_type'])
     try:
-        fferer_order_text = f"{"🔴" if order['order_type'] == "فروش" else "🔵"} {order['order_type']}\n" +"🤝🏻 معامله\n" +f"فی: {format(int(order["price"]), ",")}\n" +f"مقدار: {volume} کیلو\n" +f"برای: {order["trade_date"]}\n" +f"شناسه: {order_acceptance_id}\n" +f"زمان معامله: \n{tehran_date_and_time}\n\nجزئیات سفارش:\n({group_text})\n"
+        fferer_order_text = f"{order['order_type']} {"🔴" if order['order_type'] == "فروش" else "🔵"}{emoji}\n" +"🤝🏻 معامله\n" +f"فی: {format(int(order["price"]), ",")}\n" +f"مقدار: {volume} کیلو\n" +f"برای: {order["trade_date"]}\n" +f"شناسه: {order_acceptance_id}\n" +f"زمان معامله: \n{tehran_date_and_time}\n\nجزئیات سفارش:\n({group_text})\n"
         # f"({order['group_text'][9:-7]})\n" +
         if order['description']:
             fferer_order_text += f"{order['description']}"
-            
+
         await bot.send_message(
             chat_id=order['offerer_tel_id'],
             text=fferer_order_text
         )
-        
-        acceptor_order_text = f"{"🔵" if order['order_type'] == "فروش" else "🔴"} {"خرید" if order['order_type'] == "فروش" else "فروش"}\n" +"🤝🏻 معامله\n" +f"فی: {format(int(order["price"]), ",")}\n" +f"مقدار: {volume} کیلو\n" +f"برای: {order["trade_date"]}\n" +f"شناسه: {order_acceptance_id}\n" +f"زمان معامله: \n{tehran_date_and_time}\n\nجزئیات سفارش:\n({group_text})\n"
+
+        acceptor_order_text = f"{"خرید" if order['order_type'] == "فروش" else "فروش"} {"🔵" if order['order_type'] == "فروش" else "🔴"}{emoji}\n" +"🤝🏻 معامله\n" +f"فی: {format(int(order["price"]), ",")}\n" +f"مقدار: {volume} کیلو\n" +f"برای: {order["trade_date"]}\n" +f"شناسه: {order_acceptance_id}\n" +f"زمان معامله: \n{tehran_date_and_time}\n\nجزئیات سفارش:\n({group_text})\n"
         # f"({order['group_text'][9:-7]})\n" +
         if order['description']:
             acceptor_order_text += f"{order['description']}"
-        
+
         await bot.send_message(
             chat_id=callback.from_user.id,
             text=acceptor_order_text

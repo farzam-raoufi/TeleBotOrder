@@ -21,10 +21,10 @@ def fa_to_en_digits(text):
 # date-type
 def data_to_order(date: int, type: int):
     orders = {
-        "1-1": "امروزی☀️",
+        "1-1": "امروزی ☀️",
         "1-2": "نقدی حاضر",
-        "2-1": "با حواله",
-        "2-2": "بی حواله فردا",
+        "2-1": "با حواله ⏳",
+        "2-2": "بی حواله فردا 💵",
     }
     return orders.get(f"{date}-{type}")
 
