@@ -51,7 +51,7 @@ async def main():
 
     try:
         print("robot started")
-        await dp.start_polling(bot)
+        await dp.start_polling(bot,polling_timeout=15)
     finally:
         scheduler_task.cancel()
 
