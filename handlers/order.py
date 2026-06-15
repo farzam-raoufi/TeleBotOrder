@@ -638,7 +638,7 @@ async def handle_accept_order(callback: CallbackQuery, bot: Bot):
     # کیبورد جدید
     new_keyboard = get_order_keyboard(order_id, new_remaining)
 
-    order['group_text'] += f" 🤝🏻✅"
+    order['group_text'] += f"(مانده:{new_remaining}) 🤝🏻✅"
 
     try:
         if order['description']:
